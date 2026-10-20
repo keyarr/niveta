@@ -1,0 +1,12 @@
+[package]
+name = "niveta-color"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+niveta-cms = { workspace = true }
+serde = { workspace = true }

@@ -1,0 +1,17 @@
+[package]
+name = "niveta-paint"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+niveta-geom = { workspace = true }
+niveta-color = { workspace = true }
+niveta-raster = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -1,0 +1,55 @@
+[package]
+name = "niveta-io"
+description = "Import/export between Niveta documents and PSD/PSB and flat raster formats"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# Real-file corpus tests (opt-in; `cargo xtask test-corpus`). Fail when the corpus is missing.
+corpus = []
+# HEIC/HEIF decode (forwarded to niveta-codecs; see its `heif` feature).
+heif = ["niveta-codecs/heif"]
+
+[dependencies]
+niveta-geom = { workspace = true }
+niveta-color = { workspace = true }
+niveta-cms = { workspace = true }
+niveta-raster = { workspace = true }
+niveta-doc = { workspace = true }
+niveta-compose = { workspace = true }
+niveta-algo = { workspace = true }
+niveta-psd = { workspace = true }
+niveta-codecs = { workspace = true }
+niveta-raw = { workspace = true }
+niveta-text = { workspace = true }
+niveta-paint = { workspace = true }
+niveta-vector = { workspace = true }
+niveta-format = { path = "../format" }
+thiserror = { workspace = true }
+serde_json = { workspace = true }
+blake3 = { version = "1.8", default-features = false, features = ["pure"] }
+# svg.rs inflates `.svgz` itself (with a size cap) so the XML can be checked before it is parsed.
+flate2 = { workspace = true }
+# SVG import (svg.rs): usvg parses, resvg rasterises what the shape model can't hold. Both are
+# already in the tree through the UI's icon loader; text shaping needs the fonts feature set.
+# system-fonts scans the OS fonts: desktop only, phones use the bundled fonts.
+[target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))'.dependencies]
+resvg = { version = "0.45", default-features = false, features = ["text", "system-fonts", "raster-images"] }
+
+[target.'cfg(all(not(target_arch = "wasm32"), target_os = "android"))'.dependencies]
+resvg = { version = "0.45", default-features = false, features = ["text", "raster-images"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+resvg = { version = "0.45", default-features = false, features = ["text", "raster-images"] }
+
+[dev-dependencies]
+crc32fast = "1.5"
+flate2 = { workspace = true }
+niveta-psd = { workspace = true, features = ["testgen"] }
+niveta-raw = { workspace = true, features = ["testgen"] }
+proptest = { workspace = true }

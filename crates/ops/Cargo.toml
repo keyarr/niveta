@@ -1,0 +1,11 @@
+[package]
+name = "niveta-ops"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+niveta-doc = { workspace = true }
