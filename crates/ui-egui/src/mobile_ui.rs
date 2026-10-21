@@ -46,6 +46,9 @@ pub struct MobileUi {
     pub tools_open: bool,
     /// Filter text for the tool list (cleared whenever the sheet opens or a tool is picked).
     pub tools_filter: String,
+    /// Whether the Transform group of the overflow menu is open (it collapses again
+    /// every time the menu opens).
+    pub transform_open: bool,
 }
 
 /// A two-finger gesture over the canvas: pan and pinch it, never paint with it. Returns the
@@ -112,11 +115,12 @@ pub fn two_finger_tap(track: &mut Option<TapTrack>, now: f64, rect: egui::Rect, 
     None
 }
 
-/// Compact header: Home, the document title, export and an overflow menu. Undo and redo
-/// live on two-finger taps over the canvas (left half undoes, right half redoes), so they
-/// take no header room. Everything else lives one tap away in the command palette or the
+/// Compact header: Home, the document title, undo/redo, export and an overflow menu.
+/// Undo and redo also live on two-finger taps over the canvas (left half undoes, right
+/// half redoes), but the header carries them too: they are the buttons a photo editor
+/// is used for most. Everything else lives one tap away in the command palette or the
 /// overflow menu, so no menu bar has to fit in 360 pt. With no document open only the title
-/// and the overflow menu stay: Home and export need an editable document.
+/// and the overflow menu stay: Home, history and export need an editable document.
 pub fn header(app: &mut NivetaApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     egui::Panel::top("mobile_header")
@@ -125,28 +129,16 @@ pub fn header(app: &mut NivetaApp, ui: &mut egui::Ui) {
         .show_separator_line(false)
         .frame(egui::Frame::NONE.fill(t.chrome).inner_margin(egui::Margin { left: 4, right: 8, top: SAFE_TOP as i8, bottom: 0 }))
         .show(ui, |ui| {
-            ui.horizontal_centered(|ui| {
+            // Right to left: the overflow button hugs the right edge and the title takes
+            // whatever the buttons leave, so no button ever falls off the screen.
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.spacing_mut().item_spacing.x = 4.0;
                 let has_doc = app.session.active().is_some();
-                if has_doc {
-                    // Same toggle as the desktop options bar's Home button, touch-sized:
-                    // going Home snapshots first on picker-less builds, where nothing
-                    // else saves before a background kill (see `chrome_ui::home_button`).
-                    let n = app.session.documents().len();
-                    let on = app.ui.chrome.shows_home(n, app.session.prefs().general.auto_show_home_screen);
-                    if icons::button_with_icon_size(ui, "house", 48.0, 22.0, on, tl!("Home")).clicked() {
-                        if !on && app.services.file_dialog.is_none() {
-                            crate::prefs_ui::autosave_now(app);
-                        }
-                        app.ui.chrome.home = if on { None } else { Some(n) };
-                    }
+                let more = icons::button(ui, "ellipsis", 48.0, false, tl!("Options"));
+                // The menu is closed: the transform group starts collapsed every time.
+                if !egui::Popup::is_id_open(ui.ctx(), egui::Popup::default_response_id(&more)) {
+                    app.ui.mobile.transform_open = false;
                 }
-                let title =
-                    app.session.active().map(|st| format!("{}{}", st.doc.name, if st.is_dirty() { " *" } else { "" })).unwrap_or_else(|| "Niveta".into());
-                // Whatever the right-hand buttons take, the title gets the rest, truncated.
-                let right_reserve = if has_doc { 72.0 } else { 0.0 } + 48.0 + 12.0;
-                let avail = (ui.available_width() - right_reserve).max(48.0);
-                ui.add_sized(vec2(avail, 48.0), egui::Label::new(RichText::new(title).color(t.text).size(13.0)).truncate());
                 if has_doc {
                     // No save picker on phones: saving happens automatically
                     // (autosave + on exit), so the header offers Export instead. Transform
@@ -155,44 +147,69 @@ pub fn header(app: &mut NivetaApp, ui: &mut egui::Ui) {
                     if ui.add_enabled_ui(export_on, |ui| widgets::secondary_button(ui, tl!("Export"), 64.0)).inner.clicked() {
                         crate::mobile_export::open(app);
                     }
+                    // The row is laid out right to left, so redo is added first: undo
+                    // ends up on its left, next to the file name.
+                    let can_redo = crate::menus::is_enabled(app, "edit.redo");
+                    if ui.add_enabled_ui(can_redo, |ui| history_button(ui, "redo-2", tl!("Redo"))).inner.clicked() {
+                        run_command(app, ui.ctx(), "edit.redo");
+                    }
+                    let can_undo = crate::menus::is_enabled(app, "edit.undo");
+                    if ui.add_enabled_ui(can_undo, |ui| history_button(ui, "undo-2", tl!("Undo"))).inner.clicked() {
+                        run_command(app, ui.ctx(), "edit.undo");
+                    }
                 }
-                let more = icons::button(ui, "ellipsis", 48.0, false, tl!("Options"));
-                egui::Popup::menu(&more).show(|ui| {
-                    ui.set_min_width(MENU_W);
-                    // Rows sit close together like the desktop menus': the old 44 + 4 spacing
-                    // made the sixteen rows overflow a phone screen.
-                    ui.spacing_mut().item_spacing.y = MENU_GAP;
-                    menu_item(ui, app, tl!("New…"), "file.new", json!({}));
-                    // Same as the Home-screen button: a build with no picker explains
-                    // instead of flashing "cancelled".
-                    if ui
-                        .add_enabled(crate::menus::is_enabled(app, "file.open"), egui::Button::new(tl!("Open…")).min_size(vec2(MENU_W, MENU_ROW_H)))
-                        .clicked()
-                    {
-                        app.open_interactive();
-                        ui.close();
-                    }
-                    menu_item(ui, app, tl!("Save As…"), "file.saveAs", json!({}));
-                    menu_item(ui, app, tl!("Redo"), "edit.redo", json!({}));
-                    // File › Revert: back to the file the photograph came from, edits undone
-                    // as one history step. Dirty documents get the discard prompt first.
-                    menu_item(ui, app, tl!("Restore Original"), "file.revert", json!({}));
-                    ui.separator();
-                    menu_item(ui, app, tl!("Free Transform"), "edit.freeTransform", json!({}));
-                    menu_item(ui, app, tl!("Scale"), "edit.transform.scale", json!({}));
-                    menu_item(ui, app, tl!("Rotate"), "edit.transform.rotate", json!({}));
-                    menu_item(ui, app, tl!("Skew"), "edit.transform.skew", json!({}));
-                    menu_item(ui, app, tl!("Distort"), "edit.transform.distort", json!({}));
-                    menu_item(ui, app, tl!("Perspective"), "edit.transform.perspective", json!({}));
-                    menu_item(ui, app, tl!("Warp"), "edit.transform.warp", json!({}));
-                    menu_item(ui, app, tl!("Transform Selection"), "select.transformSelection", json!({}));
-                    ui.separator();
-                    menu_item(ui, app, tl!("Fit on Screen"), "view.fitOnScreen", json!({}));
-                    if ui.add_sized(vec2(MENU_W, MENU_ROW_H), egui::Button::new(tl!("Search commands, tools and panels…"))).clicked() {
-                        app.ui.palette_open = true;
-                        ui.close();
-                    }
+                let title =
+                    app.session.active().map(|st| format!("{}{}", st.doc.name, if st.is_dirty() { " *" } else { "" })).unwrap_or_else(|| "Niveta".into());
+                // The title is what the buttons leave: a container of its own, so the
+                // long file name is truncated instead of pushing the buttons off screen.
+                let title_w = (ui.available_width() - if has_doc { HOME_BTN + 4.0 } else { 0.0 }).max(24.0);
+                ui.allocate_ui_with_layout(vec2(title_w, 48.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    ui.add(egui::Label::new(RichText::new(title).color(t.text).size(13.0)).truncate());
                 });
+                if has_doc {
+                    // Same toggle as the desktop options bar's Home button, touch-sized:
+                    // going Home snapshots first on picker-less builds, where nothing
+                    // else saves before a background kill (see `chrome_ui::home_button`).
+                    let n = app.session.documents().len();
+                    let on = app.ui.chrome.shows_home(n, app.session.prefs().general.auto_show_home_screen);
+                    if icons::button_with_icon_size(ui, "house", HOME_BTN, 22.0, on, tl!("Home")).clicked() {
+                        if !on && app.services.file_dialog.is_none() {
+                            crate::prefs_ui::autosave_now(app);
+                        }
+                        app.ui.chrome.home = if on { None } else { Some(n) };
+                    }
+                }
+                // The menu hangs from the header's bottom edge, so it never covers the
+                // header itself, and it keeps to the right, so the brush size below
+                // stays visible.
+                egui::Popup::menu(&more)
+                    .at_position(ui.max_rect().right_bottom())
+                    .align(egui::RectAlign { parent: egui::Align2::RIGHT_TOP, child: egui::Align2::RIGHT_TOP })
+                    // A click inside the menu does not close it: the transform group
+                    // opens in place, and the rows close the menu themselves.
+                    .close_behavior(egui::PopupCloseBehavior::CloseOnClickOutside)
+                    .show(|ui| {
+                        ui.set_min_width(MENU_W);
+                        // Rows sit close together like the desktop menus': the old 44 + 4
+                        // spacing made the rows overflow a phone screen.
+                        ui.spacing_mut().item_spacing.y = MENU_GAP;
+                        menu_item(ui, app, tl!("New…"), "file.new");
+                        // Same as the Home-screen button: a build with no picker explains
+                        // instead of flashing "cancelled".
+                        if ui.add_enabled(crate::menus::is_enabled(app, "file.open"), egui::Button::new(tl!("Open…")).min_size(vec2(MENU_W, MENU_ROW_H))).clicked() {
+                            app.open_interactive();
+                            ui.close();
+                        }
+                        menu_item(ui, app, tl!("Save As…"), "file.saveAs");
+                        // File › Revert: back to the file the photograph came from, edits undone
+                        // as one history step. Dirty documents get the discard prompt first.
+                        menu_item(ui, app, tl!("Restore Original"), "file.revert");
+                        ui.separator();
+                        transform_group(ui, app);
+                        ui.separator();
+                        menu_item(ui, app, tl!("Fit on Screen"), "view.fitOnScreen");
+                        search_field(ui, app);
+                    });
             });
         });
 }
@@ -202,15 +219,101 @@ pub fn header(app: &mut NivetaApp, ui: &mut egui::Ui) {
 const MENU_W: f32 = 280.0;
 const MENU_ROW_H: f32 = 40.0;
 const MENU_GAP: f32 = 2.0;
+/// The Home button's touch size, and the undo/redo buttons' (smaller) one.
+const HOME_BTN: f32 = 48.0;
+const HISTORY_BTN: f32 = 36.0;
+/// The search field's inner padding: the magnifier keeps this distance from the frame.
+const SEARCH_PAD: f32 = 8.0;
 
-fn menu_item(ui: &mut egui::Ui, app: &mut NivetaApp, label: &str, id: &str, params: serde_json::Value) {
+/// A menu row: the full menu width, so every row sits on the same left axis.
+fn menu_item(ui: &mut egui::Ui, app: &mut NivetaApp, label: &str, id: &str) {
     if ui.add_enabled(crate::menus::is_enabled(app, id), egui::Button::new(label).min_size(vec2(MENU_W, MENU_ROW_H))).clicked() {
-        if let Err(e) = crate::menus::invoke(app, ui.ctx(), id, params) {
-            app.ui.status = e;
-            app.ui.status_error = true;
-        }
+        run_command(app, ui.ctx(), id);
         ui.close();
     }
+}
+
+/// Run a command and report what went wrong in the status bar.
+fn run_command(app: &mut NivetaApp, ctx: &egui::Context, id: &str) {
+    if let Err(e) = crate::menus::invoke(app, ctx, id, json!({})) {
+        app.ui.status = e;
+        app.ui.status_error = true;
+    }
+}
+
+/// Undo/redo in the header: a square icon button, greyed out when the history has
+/// nothing to undo or to redo.
+fn history_button(ui: &mut egui::Ui, icon: &str, tip: &str) -> egui::Response {
+    let t = Tokens::get(ui.ctx());
+    let enabled = ui.is_enabled();
+    let (rect, resp) = ui.allocate_exact_size(vec2(HISTORY_BTN, HISTORY_BTN), Sense::click());
+    let tint = if enabled { icons::button_chrome(ui, rect, false, resp.hovered()) } else { t.text_faint };
+    icons::paint(ui, rect, icon, 20.0, tint);
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, tip));
+    resp.on_hover_text(tip)
+}
+
+/// The transform commands share one row: the list opens in place, so eight rows do
+/// not eat the screen. The whole group is greyed out when nothing can be transformed.
+fn transform_group(ui: &mut egui::Ui, app: &mut NivetaApp) {
+    let t = Tokens::get(ui.ctx());
+    let transforms = [
+        (tl!("Free Transform"), "edit.freeTransform"),
+        (tl!("Scale"), "edit.transform.scale"),
+        (tl!("Rotate"), "edit.transform.rotate"),
+        (tl!("Skew"), "edit.transform.skew"),
+        (tl!("Distort"), "edit.transform.distort"),
+        (tl!("Perspective"), "edit.transform.perspective"),
+        (tl!("Warp"), "edit.transform.warp"),
+        (tl!("Transform Selection"), "select.transformSelection"),
+    ];
+    let can_transform = transforms.iter().any(|(_, id)| crate::menus::is_enabled(app, id));
+    ui.add_enabled_ui(can_transform, |ui| {
+        let open = app.ui.mobile.transform_open;
+        let resp = ui.add(egui::Button::new(tl!("Transform")).min_size(vec2(MENU_W, MENU_ROW_H)));
+        // The chevron says the row opens a list of its own.
+        let chevron = Rect::from_center_size(resp.rect.right_center() - vec2(16.0, 0.0), vec2(16.0, 16.0));
+        let tint = if ui.is_enabled() { t.text_dim } else { t.text_faint };
+        icons::paint(ui, chevron, if open { "chevron-down" } else { "chevron-right" }, 16.0, tint);
+        if resp.clicked() {
+            app.ui.mobile.transform_open = !open;
+        }
+        if open {
+            // The list sits on the menu's left axis, like every other row.
+            for (label, id) in transforms {
+                menu_item(ui, app, label, id);
+            }
+        }
+    });
+}
+
+/// The command palette opens from a search field at the bottom of the menu: a darker
+/// frame with a magnifier, on the same left axis as the rows above it.
+fn search_field(ui: &mut egui::Ui, app: &mut NivetaApp) {
+    let t = Tokens::get(ui.ctx());
+    let label = tl!("Search commands, tools and panels…");
+    egui::Frame::new()
+        .fill(t.field)
+        .stroke(egui::Stroke::new(1.0, t.field_border))
+        .corner_radius(t.radius_sm)
+        // The magnifier keeps its distance from the frame's edge, the way the palette's
+        // field keeps its text away from its own.
+        .inner_margin(egui::Margin { left: SEARCH_PAD as i8, right: 0, top: 6, bottom: 6 })
+        .show(ui, |ui| {
+            let (rect, resp) = ui.allocate_exact_size(vec2(MENU_W - SEARCH_PAD, 22.0), Sense::click());
+            let icon = Rect::from_min_size(pos2(rect.left(), rect.center().y - 8.0), vec2(16.0, 16.0));
+            icons::paint(ui, icon, "search", 16.0, t.text_faint);
+            let text_x = icon.right() + 8.0;
+            let mut job = egui::text::LayoutJob::simple_singleline(label.to_owned(), egui::FontId::proportional(13.0), t.text_dim);
+            job.wrap = egui::text::TextWrapping::truncate_at_width((rect.right() - text_x - 8.0).max(1.0));
+            let galley = ui.painter().layout_job(job);
+            ui.painter().galley(pos2(text_x, rect.center().y - galley.size().y / 2.0), galley, t.text_dim);
+            if resp.clicked() {
+                app.ui.palette_open = true;
+                ui.close();
+            }
+            resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, label));
+        });
 }
 
 /// The active tool's options, horizontally scrollable: single-line container with smooth
@@ -777,6 +880,18 @@ mod tests {
         });
         rects.sort_by(|a, b| a.top().total_cmp(&b.top()).then(a.left().total_cmp(&b.left())));
         rects
+    }
+
+    /// What the last pass knows about a labelled widget (the buttons carry their label
+    /// as their accessible name).
+    fn widget_info(ctx: &egui::Context, label: &str) -> Option<egui::WidgetInfo> {
+        let ids: Vec<egui::Id> = ctx.viewport(|v| v.prev_pass.widgets.layers().flat_map(|(_, w)| w.iter()).map(|w| w.id).collect());
+        ctx.viewport(|v| {
+            ids.iter().find_map(|id| {
+                let info = v.prev_pass.widgets.info(*id)?;
+                (info.label.as_deref() == Some(label)).then(|| info.clone())
+            })
+        })
     }
 
     /// A phone with a document open and two settled frames of bottom bar behind it.
@@ -1588,5 +1703,99 @@ mod tests {
             let content = h.query_all_by_label(probe).last().unwrap_or_else(|| panic!("{kind}: {probe}")).rect();
             assert!((content.min.x - 150.0).abs() <= 6.0, "{kind}: {probe} at {content:?}");
         }
+    }
+
+    /// The overflow menu keeps the eight transform commands in one row: they ate the
+    /// phone screen. The list opens in place, under its own row, and the group is
+    /// greyed out as a whole when nothing can be transformed.
+    #[test]
+    fn overflow_menu_groups_the_transforms() {
+        use egui_kittest::Harness;
+        use egui_kittest::kittest::Queryable;
+        crate::i18n::set_current(crate::i18n::Lang::EN);
+        let mut a = app();
+        a.run("file.new", json!({"width": 64, "height": 64})).unwrap();
+        // A layer of its own: the background layer cannot be transformed, and the
+        // group would stay greyed out.
+        a.run("layer.new.layer", json!({"name": "Layer"})).unwrap();
+        let mut h = Harness::builder().with_size(vec2(360.0, 800.0)).build_ui_state(
+            |ui, app: &mut NivetaApp| {
+                if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
+                    return;
+                }
+                header(app, ui);
+            },
+            a,
+        );
+        NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
+        h.run_steps(8);
+        let tap = |h: &mut Harness<'_, NivetaApp>, at: egui::Pos2| {
+            h.drag_at(at);
+            h.run_steps(1);
+            h.drop_at(at);
+            h.run_steps(3);
+        };
+        tap(&mut h, egui::pos2(332.0, 26.0));
+        assert!(h.query_by_label("Transform").is_some(), "the group is one row");
+        assert!(h.query_by_label("Scale").is_none(), "the list starts closed");
+        // Redo moved to the header: the menu carries it no more.
+        assert_eq!(h.query_all_by_label("Redo").count(), 1, "only the header carries redo");
+        let group = h.get_by_label("Transform").rect().center();
+        tap(&mut h, group);
+        assert!(h.query_by_label("Scale").is_some(), "the list opens in place");
+        assert!(h.query_by_label("Warp").is_some(), "every transform has a row");
+        // The group's own rows sit on the menu's left axis, like the rows above them.
+        let scale = h.get_by_label("Scale").rect();
+        let fit = h.get_by_label("Fit on Screen").rect();
+        assert!((scale.min.x - fit.min.x).abs() <= 2.0, "the transform rows are on the menu's axis: {scale:?} vs {fit:?}");
+        // The search field is a frame on the menu's axis; the magnifier sits one
+        // padding inside it (the button's own frame adds a point to its rect).
+        let search = h.get_by_label("Search commands, tools and panels…").rect();
+        let fit = h.get_by_label("Fit on Screen").rect();
+        assert!((search.min.x - fit.min.x - SEARCH_PAD).abs() <= 2.0, "the search field is on the menu's axis: {search:?} vs {fit:?}");
+    }
+
+    /// The header carries undo and redo, and nothing falls off the screen: the file
+    /// name is what gives up the room.
+    #[test]
+    fn the_header_keeps_its_buttons_on_screen() {
+        use egui_kittest::Harness;
+        use egui_kittest::kittest::Queryable;
+        crate::i18n::set_current(crate::i18n::Lang::EN);
+        let mut a = app();
+        a.run("file.new", json!({"width": 64, "height": 64})).unwrap();
+        let mut h = Harness::builder().with_size(vec2(360.0, 800.0)).build_ui_state(
+            |ui, app: &mut NivetaApp| {
+                if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
+                    return;
+                }
+                header(app, ui);
+            },
+            a,
+        );
+        NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
+        // The widget info (the buttons' accessible name and enabled state) is only
+        // kept when the debug flag is on.
+        h.ctx.all_styles_mut(|s| s.debug.show_interactive_widgets = true);
+        h.run_steps(8);
+        assert!(h.query_by_label("Undo").is_some(), "the header carries undo");
+        assert!(h.query_by_label("Redo").is_some(), "the header carries redo");
+        for label in ["Undo", "Redo", "Export"] {
+            let r = h.get_by_label(label).rect();
+            assert!(r.min.x >= 0.0 && r.max.x <= 360.0, "{label} is on screen: {r:?}");
+        }
+        // A fresh document has no history: undo and redo are greyed out.
+        assert!(!widget_info(&h.ctx, "Undo").expect("the undo button").enabled, "nothing to undo yet");
+        assert!(!widget_info(&h.ctx, "Redo").expect("the redo button").enabled, "nothing to redo yet");
+        // An edit enables undo, and the button undoes it.
+        h.state_mut().run("layer.new.layer", json!({"name": "Layer"})).unwrap();
+        h.run_steps(2);
+        assert!(widget_info(&h.ctx, "Undo").expect("the undo button").enabled, "there is something to undo");
+        let undo = h.get_by_label("Undo").rect().center();
+        h.drag_at(undo);
+        h.run_steps(1);
+        h.drop_at(undo);
+        h.run_steps(3);
+        assert_eq!(h.state().session.active().unwrap().doc.layers.len(), 1, "the layer is gone again");
     }
 }
