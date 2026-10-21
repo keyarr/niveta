@@ -1,11 +1,4 @@
-<p align="center">
-  <a href="https://getartcraft.com/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/brand/artcraft-logo-white.svg">
-      <img alt="ArtCraft" src="docs/brand/artcraft-logo.svg" width="200">
-    </picture>
-  </a>
-</p>
+
 
 <h1 align="center">Niveta</h1>
 
@@ -15,66 +8,23 @@
   in a native app written entirely in Rust. Open source, offline, and yours.
 </p>
 
-<p align="center">
-  <img alt="100% Rust" src="https://img.shields.io/badge/100%25-Rust-b7410e?style=flat-square&logo=rust">
-  <img alt="Android" src="https://img.shields.io/badge/Android-apk-2f7bf5?style=flat-square">
-  <img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-3a3a3a?style=flat-square">
-  <img alt="Status: early alpha" src="https://img.shields.io/badge/status-early%20alpha-d69e2e?style=flat-square">
-</p>
-
-<p align="center">
-  <a href="https://discord.gg/artcraft"><img alt="Join the ArtCraft community on Discord" src="https://img.shields.io/badge/Join%20us%20on%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="40"></a>
-</p>
-
-<p align="center">
-  <a href="https://getartcraft.com/apps/photocraft"><b>Niveta on getartcraft.com</b></a> ·
-  <a href="https://getartcraft.com/">ArtCraft</a> ·
-  <a href="https://getartcraft.com/apps">All Crafting Apps</a>
-</p>
-
-<br>
-
-<p align="center">
-  <img src="docs/images/niveta-demo.jpg" alt="Niveta editing Hokusai's The Great Wave: a caption card with a drop shadow, Title and Credit type layers, Vibrance and Curves adjustment layers, and the Curves editor drawn over the image's histogram" width="100%">
-  <br>
-  <sub>A caption card with a drop shadow, live type, and Vibrance and Curves adjustment layers, with the Curves editor open.<br>
-  <i>The Great Wave off Kanagawa</i>, Katsushika Hokusai, c. 1831</sub>
-</p>
-
-> [!NOTE]
-> **ArtCraft is a community of artists from all walks of life.** Digital, generative, music,
-> games &mdash; if you make things, you're one of us. **[Come say hi on Discord](https://discord.gg/artcraft).**
-
-<p align="center">
-  <a href="#features">Features</a> ·
-  <a href="#everything-in-the-box">Everything in the box</a> ·
-  <a href="#psd-without-compromise">PSD</a> ·
-  <a href="#built-for-agents">Agents</a> ·
-  <a href="#under-the-hood">Under the hood</a> ·
-  <a href="#get-started">Get started</a> ·
-  <a href="#downloads">Downloads</a> ·
-  <a href="#the-crafting-apps">Crafting Apps</a> ·
-  <a href="https://discord.gg/artcraft">Discord</a>
-</p>
-
-<br>
 
 <table>
   <tr>
     <td width="25%" valign="top">
-      <h3>🎛️ Familiar by design</h3>
-      The menus, shortcuts, panels and tools are where your hands expect them, from ⌘J to ⇧⌘D. If you know Photoshop, you already know Niveta.
+      <h3>Familiar by design</h3>
+      The menus, shortcuts, panels and tools are where your hands expect them. If you know Photoshop, you already know Niveta.
     </td>
     <td width="25%" valign="top">
-      <h3>⚡ Native and fast</h3>
-      A CPU-first canvas with an opt-in wgpu compositor, copy-on-write tiles and multithreaded filters. No Electron, no web view, no waiting.
+      <h3>Native and fast</h3>
+      A GPU-first canvas with an opt-in wgpu compositor, copy-on-write tiles and multithreaded filters. No Electron, no web view, no waiting.
     </td>
     <td width="25%" valign="top">
-      <h3>🗂️ Real PSD files</h3>
+      <h3>Real PSD files</h3>
       Open, edit and save layered Photoshop documents. Re-saving keeps the render of 307 of the 309 psd-tools test files.
     </td>
     <td width="25%" valign="top">
-      <h3>🤖 Agent-ready</h3>
+      <h3>Agent-ready</h3>
       Every action is a command, so anything you can tap, a script or an AI agent can do too through the same engine.
     </td>
   </tr>
@@ -178,31 +128,31 @@ Every screenshot here is the real app at work on public-domain art, rendered off
 <table>
   <tr>
     <td width="33%" valign="top">
-      <h4>🧰 52 tools</h4>
+      <h4>52 tools</h4>
       Move · Rectangular and Elliptical Marquee · Lasso · Polygonal Lasso · Magnetic Lasso · Object Selection · Quick Selection · Magic Wand · Crop · Slice · Slice Select · Eyedropper · Ruler · Note · Count · Spot Healing Brush · Healing Brush · Patch · Content-Aware Move · Red Eye · Brush · Pencil · Mixer Brush · Clone Stamp · Pattern Stamp · History Brush · Eraser · Background Eraser · Magic Eraser · Gradient · Paint Bucket · Blur · Sharpen · Smudge · Dodge · Burn · Sponge · Pen · Horizontal and Vertical Type · Path Selection · Direct Selection · Rectangle · Ellipse · Triangle · Polygon · Line · Custom Shape · Hand · Rotate View · Zoom
     </td>
     <td width="33%" valign="top">
-      <h4>🖌️ A real brush engine</h4>
+      <h4>A real brush engine</h4>
       Shape Dynamics, Scattering, Texture, Dual Brush, Color Dynamics, Transfer, Brush Pose, Wet Edges, Build-up and Smoothing (including Pulled String), driven by pen pressure, tilt, rotation and direction. Brush presets, Define Brush from Selection, and deterministic, replayable strokes.
     </td>
     <td width="33%" valign="top">
-      <h4>🗃️ Layers, done properly</h4>
+      <h4>Layers, done properly</h4>
       Groups, clipping masks, pixel and vector masks, fill layers (solid, gradient and pattern), adjustment layers, live smart objects with smart filters and lossless transforms and warps, multi-layer selection with align, distribute and link, alpha channels and Quick Mask, 27 blend modes, opacity and fill, locks, colour labels, layer filters, merge, flatten, rasterize, Layer via Copy/Cut, Paste Into.
     </td>
   </tr>
   <tr>
     <td width="33%" valign="top">
-      <h4>🎨 Any colour, any depth</h4>
+      <h4>Any colour, any depth</h4>
       RGB, Grayscale, CMYK and Lab documents at 8, 16 and 32 bits per channel. Bit depth and colour model are runtime data, so every tool works at every depth.
       <br><br>
       Real ICC colour management in pure Rust: embedded profiles, Assign and Convert to Profile with all four rendering intents and black point compensation, soft proofing (⌘Y) and Gamut Warning (⇧⌘Y) on the GPU.
     </td>
     <td width="33%" valign="top">
-      <h4>🗂️ Formats</h4>
+      <h4>Formats</h4>
       PSD and PSB, layered TIFF (Photoshop's layer data in the TIFF, read and written in either byte order), SVG (opens as shape layers, places as a vector Smart Object), plus flat PNG, JPEG, TIFF, WebP (lossy and lossless), GIF, BMP, TGA, ICO, QOI, PNM, OpenEXR, Radiance HDR and AVIF, with symmetric read and write at 8, 16 and 32 bits, HEIC photos from iPhone and Mac (read; in official builds, an optional <code>--features heif</code> build feature), camera raws (DNG, CR2, uncompressed/lossless TIFF-EP) developed into 16-bit documents, and the native <code>.pcraft</code> format.
     </td>
     <td width="33%" valign="top">
-      <h4>🪄 The everyday essentials</h4>
+      <h4>The everyday essentials</h4>
       Auto Tone, Contrast and Color · Equalize · Image and Canvas Size · Crop and Trim · Reveal All · Edit › Fill and Stroke · Copy Merged · Paste in Place · guides, rulers, grid and snapping · Actions record and replay · a command palette (⌘F).
     </td>
   </tr>
@@ -225,7 +175,7 @@ Every menu item, tool and dialog runs a command from one registry of 500+ comman
 ## Under the hood
 
 - **Engine first:** a pure-data document model and a command engine, with a thin egui UI on top. Layering is enforced at build time across 21 crates.
-- **Two compositors:** a CPU compositor serves as the reference oracle, and a wgpu compositor puts the canvas on the GPU. They are tested against each other. Phones render on the CPU by default; the GPU canvas is opt-in.
+- **Two compositors:** a CPU compositor serves as the reference oracle, and a wgpu compositor puts the canvas on the GPU. They are tested against each other. Phones tries to render on the GPU by default; fallback to CPU.
 - **Copy-on-write tiles:** 256² sparse tiles make undo cheap and huge canvases light, and effect maps are cached per layer state.
 - **Android shell:** the same engine behind a touch-first egui shell (`apps/niveta-android`), packaged with xbuild. No Electron, no web view, no Java UI.
 - **Clean-room:** implemented from public specs and observed behaviour only. No proprietary code, shaders or assets.
@@ -236,8 +186,8 @@ Every menu item, tool and dialog runs a command from one registry of 500+ comman
 Prerequisites: Rust stable (1.95+), an Android SDK with NDK and build-tools, and `x` (xbuild: `cargo install xbuild`). Point `ANDROID_HOME` at the SDK and add the Rust Android target once:
 
 ```sh
-git clone https://github.com/keyarr/photocraft
-cd photocraft
+git clone https://github.com/keyarr/niveta
+cd niveta
 rustup target add aarch64-linux-android
 cargo test --workspace                           # the test suite
 cargo xtask android build                        # debug APK, one command
@@ -271,16 +221,16 @@ Security architecture, threat modeling, parser hardening, fuzzing, and vulnerabi
 
 ## Test corpora
 
-Niveta is tested against real files: our own Photoshop-authored oracle PSDs in
+Niveta uses photocraft psd's:
 [photocraft-corpus](https://github.com/storytold/photocraft-corpus) plus the psd-tools, ag-psd and PngSuite sets, pinned and
 sha256-verified. Fetch them with `cargo xtask corpus --all` and run the tests with
 `cargo xtask test-corpus` (details in [docs/development.md](docs/development.md#test-corpora)).
 
 ## Downloads
 
-**New to Niveta?** Download it from the [Niveta page on getartcraft.com](https://getartcraft.com/apps/photocraft). That's the easiest way to install it.
 
-**Want a specific build or format?** On GitHub, the [latest release](https://github.com/keyarr/photocraft/releases/latest) has every build listed below, and [all releases](https://github.com/keyarr/photocraft/releases) has earlier versions and their notes. `<ver>` in the file names is the version number, and `SHA256SUMS.txt` lists a checksum for every file.
+
+**Want a specific build or format?** On GitHub, the [latest release](https://github.com/keyarr/niveta/releases/latest) has every build listed below, and [all releases](https://github.com/keyarr/niveta/releases) has earlier versions and their notes. `<ver>` in the file names is the version number, and `SHA256SUMS.txt` lists a checksum for every file.
 
 ### Android
 
@@ -288,49 +238,6 @@ sha256-verified. Fetch them with `cargo xtask corpus --all` and run the tests wi
 |---|---|---|
 | APK, arm64 | `niveta-<ver>-android-arm64.apk` | Signed; `adb install` it or sideload from the file manager |
 
-## The Crafting Apps
-
-Niveta is one of the **Crafting Apps**: free, open-source creative tools from the
-[ArtCraft](https://getartcraft.com/) team, each written from scratch in Rust and each able to
-stand on its own.
-
-| | App | What it's for | Code | Learn more |
-|:-:|---|---|---|---|
-| <img src="https://raw.githubusercontent.com/storytold/photocraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.photocraft.png" alt="" width="32" height="32"> | **Niveta** | **Image editing: layers, masks, type and real PSD files · you are here** | [GitHub](https://github.com/storytold/photocraft) | [Website](https://getartcraft.com/apps/photocraft) |
-| <img src="https://raw.githubusercontent.com/storytold/vectorcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.vectorcraft.png" alt="" width="32" height="32"> | **VectorCraft** | Vector illustration | [GitHub](https://github.com/storytold/vectorcraft) | [Website](https://getartcraft.com/apps/vectorcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/filmcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.filmcraft.png" alt="" width="32" height="32"> | **FilmCraft** | Video editing, color and sound | [GitHub](https://github.com/storytold/filmcraft) | [Website](https://getartcraft.com/apps/filmcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/lightcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.lightcraft.png" alt="" width="32" height="32"> | **LightCraft** | Photo library and raw development | [GitHub](https://github.com/storytold/lightcraft) | [Website](https://getartcraft.com/apps/lightcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/pdfcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.pdfcraft.png" alt="" width="32" height="32"> | **PdfCraft** | Reading, organizing and protecting PDFs | [GitHub](https://github.com/storytold/pdfcraft) | [Website](https://getartcraft.com/apps/pdfcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/effectcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.effectcraft.png" alt="" width="32" height="32"> | **EffectCraft** | Motion graphics and visual effects | [GitHub](https://github.com/storytold/effectcraft) | [Website](https://getartcraft.com/apps/effectcraft) |
-| <img src="https://raw.githubusercontent.com/storytold/designcraft/main/assets/app-icon/hicolor/64x64/apps/ai.storyteller.designcraft.png" alt="" width="32" height="32"> | **DesignCraft** | Page layout and publishing | [GitHub](https://github.com/storytold/designcraft) | [Website](https://getartcraft.com/apps/designcraft) |
-
-And [**ArtCraft**](https://getartcraft.com/) itself, our AI image and video studio for artists who want real control.
-
-The Crafting Apps share the same conventions: clean-room and pure Rust, native on macOS, Windows and Linux, in the browser via WebAssembly, and fully drivable by agents.
-
-<br>
-
-<p align="center">
-  <a href="https://discord.gg/artcraft"><img alt="Join the ArtCraft community on Discord" src="https://img.shields.io/badge/Join%20us%20on%20Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" height="40"></a>
-</p>
-
-<h3 align="center">Come make things with us</h3>
-
-<p align="center">
-  Our Discord is where artists of every kind hang out: people who paint, shoot, draw, cut film,
-  set type, and people still figuring out what they like to make. Share what you're working on,
-  ask for help, tell us what's broken, or tell us what you wish these tools could do.
-  Whatever your medium and however long you've been at it, you're welcome here.
-</p>
-
-<p align="center">
-  <a href="https://discord.gg/artcraft"><b>discord.gg/artcraft</b></a> ·
-  <a href="https://getartcraft.com/">getartcraft.com</a> ·
-  <a href="https://getartcraft.com/apps">The Crafting Apps</a> ·
-  <a href="https://getartcraft.com/apps/photocraft">Niveta</a>
-</p>
-
----
 
 ## License and credits
 
@@ -347,13 +254,6 @@ ArtCraft Team and are not covered by this license. They may be used only unmodif
 part of this repository and Niveta, under [`docs/brand/LICENSE-brand.txt`](docs/brand/LICENSE-brand.txt).
 Forks and modified versions must remove them.
 
-<sub>Adobe, Photoshop, Illustrator, Premiere Pro, Lightroom, Acrobat, After Effects and InDesign are trademarks or registered trademarks of Adobe Inc. in the United States and/or other countries. Niveta is an independent, open-source project and is not affiliated with, sponsored by or endorsed by Adobe Inc.; these names are used only to describe the workflows it is compatible with.</sub>
+<sub>Adobe and Photoshop, are trademarks or registered trademarks of Adobe Inc. in the United States and/or other countries. Niveta is an independent, open-source project and is not affiliated with, sponsored by or endorsed by Adobe Inc.; these names are used only to describe the workflows it is compatible with.</sub>
 
-<p align="center">
-  <a href="https://getartcraft.com/"><img alt="ArtCraft" src="docs/brand/artcraft-mark.svg" width="28"></a><br>
-  <sub>Made by the <a href="https://getartcraft.com/">ArtCraft</a> team and community.</sub>
-</p>
 
-## Star history
-
-[![Star History Chart](https://api.star-history.com/svg?repos=keyarr/photocraft&type=Date&legend=top-left)](https://www.star-history.com/?repos=keyarr%2Fphotocraft&type=date&legend=top-left)
