@@ -2,8 +2,8 @@
 
 use egui::{Align2, Color32, CornerRadius, RichText, Sense, Stroke, vec2};
 
+use crate::NivetaApp;
 use crate::theme::{self, Tokens};
-use crate::{NivetaApp, icons};
 
 /// Case-insensitive subsequence match score (higher is better); None = no match.
 pub fn fuzzy_score(query: &str, text: &str) -> Option<i32> {
@@ -38,6 +38,10 @@ pub fn fuzzy_score(query: &str, text: &str) -> Option<i32> {
 
 /// How many recently run commands the palette remembers.
 const RECENT_CAP: usize = 8;
+
+/// Left/right inset of the search text, the row labels and the shortcuts: one axis for the
+/// whole palette, so the field never sits to the right of the list it filters.
+const PAD: f32 = 12.0;
 
 /// The id of the palette's recently-run list (egui temp data: session-scoped, like the query).
 fn recent_id() -> egui::Id {
@@ -121,18 +125,15 @@ pub fn show(app: &mut NivetaApp, ctx: &egui::Context) {
                     ui.set_max_width(width);
                     let qid = egui::Id::new("palette-query");
                     let mut q: String = ui.data_mut(|d| d.get_temp(qid).unwrap_or_default());
-                    ui.allocate_ui_with_layout(
-                        vec2(width, if narrow { 48.0 } else { 28.0 }),
-                        egui::Layout::left_to_right(egui::Align::Center),
-                        |ui| {
-                            let (r, _) = ui.allocate_exact_size(vec2(22.0, 22.0), Sense::hover());
-                            icons::paint(ui, r, "search", 16.0, t.text_dim);
-                            let te = egui::TextEdit::singleline(&mut q)
-                                .hint_text(tl!("Search commands, tools and panels…"))
-                                .frame(egui::Frame::NONE)
-                                .font(egui::FontId::proportional(if narrow { 16.0 } else { 15.0 }))
-                                .desired_width(width - 40.0);
-                            let resp = ui.add(te);
+                    ui.allocate_ui_with_layout(vec2(width, if narrow { 48.0 } else { 28.0 }), egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                        let te = egui::TextEdit::singleline(&mut q)
+                            .hint_text(tl!("Search commands, tools and panels…"))
+                            // `margin` is ignored once a frame is set, so the inset rides on it.
+                            // The rows' 12 keeps one left axis for the whole palette.
+                            .frame(egui::Frame::NONE.inner_margin(egui::Margin { left: PAD as i8, right: PAD as i8, top: 2, bottom: 2 }))
+                            .font(egui::FontId::proportional(if narrow { 16.0 } else { 15.0 }))
+                            .desired_width(width);
+                        let resp = ui.add(te);
                         // Only when focus is missing: every request_focus interrupts the IME, and
                         // doing that each frame makes Wayland input methods drop key releases (#585).
                         if !resp.has_focus() {
@@ -198,10 +199,15 @@ pub fn show(app: &mut NivetaApp, ctx: &egui::Context) {
                             ui.painter().rect_filled(rect, t.radius_sm, if i == sel { t.accent_soft } else { t.hover });
                         }
                         let color = if *enabled { t.text } else { t.text_faint };
-                        ui.painter().text(rect.left_center() + vec2(12.0, 0.0), Align2::LEFT_CENTER, label, theme::medium(if narrow { 14.0 } else { 13.0 }), color);
-                        if !narrow
-                            && let Some(d) = detail {
-                            ui.painter().text(rect.right_center() - vec2(12.0, 0.0), Align2::RIGHT_CENTER, d, egui::FontId::proportional(11.5), t.text_faint);
+                        ui.painter().text(
+                            rect.left_center() + vec2(PAD, 0.0),
+                            Align2::LEFT_CENTER,
+                            label,
+                            theme::medium(if narrow { 14.0 } else { 13.0 }),
+                            color,
+                        );
+                        if !narrow && let Some(d) = detail {
+                            ui.painter().text(rect.right_center() - vec2(PAD, 0.0), Align2::RIGHT_CENTER, d, egui::FontId::proportional(11.5), t.text_faint);
                         }
                         if resp.clicked() && *enabled {
                             run = Some(id.clone());
@@ -366,5 +372,33 @@ mod tests {
             h.run_steps(3);
             assert!(h.state().ui.dialogs.iter().all(|d| d.id != dialog), "a second Enter closes the dialog as its OK (with_doc={with_doc})");
         }
+    }
+
+    /// The search text and the row labels are drawn by different code paths (TextEdit vs.
+    /// `Painter`), so a stray inset in either drifts the field off the list's left axis.
+    #[test]
+    fn the_search_text_lines_up_with_the_row_labels() {
+        fn texts(shape: &egui::Shape, out: &mut Vec<(f32, String)>) {
+            match shape {
+                egui::Shape::Text(t) => out.push((t.pos.x, t.galley.job.text.clone())),
+                egui::Shape::Vec(shapes) => shapes.iter().for_each(|s| texts(s, out)),
+                _ => {}
+            }
+        }
+        let mut h = Harness::builder().with_size(vec2(1200.0, 800.0)).with_max_steps(64).build_eframe(|cc| {
+            NivetaApp::setup_context(&cc.egui_ctx, Default::default());
+            NivetaApp::new(niveta_engine::Session::new(), crate::Services::default())
+        });
+        // A recent command makes the first row deterministic: its own label, no fuzzy order.
+        super::note_recent(&h.ctx, "file.new");
+        h.state_mut().ui.palette_open = true;
+        h.run_steps(3);
+        let mut painted = Vec::new();
+        for shape in &h.output().shapes {
+            texts(&shape.shape, &mut painted);
+        }
+        let hint = painted.iter().find(|(_, s)| s.starts_with("Search commands")).map(|(x, _)| *x).expect("the field paints its hint");
+        let row = painted.iter().find(|(_, s)| s == "New").map(|(x, _)| *x).expect("the recent command is the first row");
+        assert!((hint - row).abs() < 0.5, "the search text starts at {hint}, the row labels at {row}");
     }
 }
