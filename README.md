@@ -221,11 +221,7 @@ Security architecture, threat modeling, parser hardening, fuzzing, and vulnerabi
 
 ## Test corpora
 
-Niveta uses photocraft psd's:
-[photocraft-corpus](https://github.com/storytold/photocraft-corpus) plus the psd-tools, ag-psd and PngSuite sets, pinned and
-sha256-verified. Fetch them with `cargo xtask corpus --all` and run the tests with
-`cargo xtask test-corpus` (details in [docs/development.md](docs/development.md#test-corpora)).
-
+Niveta reuses PhotoCraft's PSD test corpus (`photocraft-corpus`), alongside the `psd-tools`, `ag-psd` and PngSuite test sets. All datasets are pinned and SHA-256-verified. Fetch them with `cargo xtask corpus --all` and run the tests with `cargo xtask test-corpus` (see [docs/development.md](docs/development.md) for details).
 ## Downloads
 
 
@@ -239,20 +235,15 @@ sha256-verified. Fetch them with `cargo xtask corpus --all` and run the tests wi
 | APK, arm64 | `niveta-<ver>-android-arm64.apk` | Signed; `adb install` it or sideload from the file manager |
 
 
+
 ## License and credits
 
-Niveta is dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
-Copyright (c) 2026 ArtCraft Team and the Niveta contributors. Required notices are in [NOTICE](NOTICE).
+Niveta is a fork of [PhotoCraft](https://github.com/storytold/photocraft) by the ArtCraft Team. The original PhotoCraft code is licensed under the MIT License or Apache License 2.0, at your option. Original copyright and license notices are preserved in `NOTICE`, `LICENSE-MIT` and `LICENSE-APACHE`.
 
-Bundled fonts, icons, images and other assets keep their own open licenses; each one is listed
-with its author, source and license in [ATTRIBUTION.md](ATTRIBUTION.md).
+Bundled fonts, icons, images and other assets retain their own licenses. See `ATTRIBUTION.md`. Sources for public-domain artwork are listed in `docs/images/SOURCES.md`.
 
-Every artwork shown is in the public domain (Wikimedia Commons, NASA, U.S. National Archives); sources are listed in [`docs/images/SOURCES.md`](docs/images/SOURCES.md).
+**Niveta is an independent fork and is not affiliated with, sponsored by, or endorsed by the ArtCraft Team. The ArtCraft name, wordmark and logos are trademarks of the ArtCraft Team and are not covered by the software licenses. Niveta is based on PhotoCraft by the ArtCraft Team.**
 
-The ArtCraft name, wordmark and logos in [`docs/brand/`](docs/brand/) are trademarks of the
-ArtCraft Team and are not covered by this license. They may be used only unmodified, and only as
-part of this repository and Niveta, under [`docs/brand/LICENSE-brand.txt`](docs/brand/LICENSE-brand.txt).
-Forks and modified versions must remove them.
 
 <sub>Adobe and Photoshop, are trademarks or registered trademarks of Adobe Inc. in the United States and/or other countries. Niveta is an independent, open-source project and is not affiliated with, sponsored by or endorsed by Adobe Inc.; these names are used only to describe the workflows it is compatible with.</sub>
 
