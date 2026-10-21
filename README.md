@@ -1,5 +1,3 @@
-
-
 <h1 align="center">Niveta</h1>
 
 <p align="center">
@@ -8,6 +6,17 @@
   in a native app written entirely in Rust. Open source, offline, and yours.
 </p>
 
+<p align="center">
+  <img alt="100% Rust" src="https://img.shields.io/badge/100%25-Rust-b7410e?style=flat-square&logo=rust">
+  <img alt="Android arm64" src="https://img.shields.io/badge/Android-arm64-3ddc84?style=flat-square&logo=android&logoColor=white">
+  <img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-3a3a3a?style=flat-square">
+  <img alt="Status: early alpha" src="https://img.shields.io/badge/status-early%20alpha-d69e2e?style=flat-square">
+</p>
+
+<p align="center">
+  Touch first, because this is an Android app: one APK, one Rust engine, the same PSD files<br>
+  as the desktop editor it forked from. No Electron, no web view, no Java UI.
+</p>
 
 <table>
   <tr>
@@ -17,7 +26,7 @@
     </td>
     <td width="25%" valign="top">
       <h3>Native and fast</h3>
-      A GPU-first canvas with an opt-in wgpu compositor, copy-on-write tiles and multithreaded filters. No Electron, no web view, no waiting.
+      A wgpu canvas with a CPU fallback, copy-on-write tiles and multithreaded filters. No Electron, no web view, no waiting.
     </td>
     <td width="25%" valign="top">
       <h3>Real PSD files</h3>
@@ -149,7 +158,7 @@ Every screenshot here is the real app at work on public-domain art, rendered off
     </td>
     <td width="33%" valign="top">
       <h4>Formats</h4>
-      PSD and PSB, layered TIFF (Photoshop's layer data in the TIFF, read and written in either byte order), SVG (opens as shape layers, places as a vector Smart Object), plus flat PNG, JPEG, TIFF, WebP (lossy and lossless), GIF, BMP, TGA, ICO, QOI, PNM, OpenEXR, Radiance HDR and AVIF, with symmetric read and write at 8, 16 and 32 bits, HEIC photos from iPhone and Mac (read; in official builds, an optional <code>--features heif</code> build feature), camera raws (DNG, CR2, uncompressed/lossless TIFF-EP) developed into 16-bit documents, and the native <code>.pcraft</code> format.
+      PSD and PSB, layered TIFF (Photoshop's layer data in the TIFF, read and written in either byte order), SVG (opens as shape layers, places as a vector Smart Object), plus flat PNG, JPEG, TIFF, WebP (lossy and lossless), GIF, BMP, TGA, ICO, QOI, PNM, OpenEXR and Radiance HDR, each keeping the depths it can hold: PNG 8/16-bit, TIFF 8/16-bit and 32-bit float, OpenEXR half and float. The 8-bit-only formats reduce higher depths on export and say so. The <a href="crates/codecs/README.md#capability-matrix-default-build">codec capability matrix</a> lists every format. HEIC photos from iPhone and Mac are read-only and AVIF is write-only; both live behind optional build features (<code>heif</code>, <code>avif</code>) that the APK does not turn on yet. Camera raws (DNG, CR2, uncompressed/lossless TIFF-EP) develop into 16-bit documents, and <code>.pcraft</code> is the native format.
     </td>
     <td width="33%" valign="top">
       <h4>The everyday essentials</h4>
@@ -168,18 +177,15 @@ Niveta's PSD support is a standalone crate written from Adobe's public specifica
 - **Pixels that match:** a composite oracle compares our render with Photoshop's own merged image, covering gradient interpolation (Classic, Perceptual and Linear), layer effects, shape strokes, clipping and fill opacity.
 - **Large documents:** PSB, 16 and 32-bit files, and CMYK and Lab documents open natively.
 
-## Built for agents
-
-Every menu item, tool and dialog runs a command from one registry of 500+ commands. The touch UI drives the same engine a script or an AI agent drives in tests, so anything you can tap is scriptable too.
-
 ## Under the hood
 
 - **Engine first:** a pure-data document model and a command engine, with a thin egui UI on top. Layering is enforced at build time across 21 crates.
-- **Two compositors:** a CPU compositor serves as the reference oracle, and a wgpu compositor puts the canvas on the GPU. They are tested against each other. Phones tries to render on the GPU by default; fallback to CPU.
+- **Everything is a command:** one registry, and all 627 Photoshop menu items are wired to commands in it ([`docs/parity.md`](docs/parity.md)). The touch shell, the tests and an agent all call the same engine, so anything you can tap is scriptable. Wiring is not behaviour; the status note below is honest about that.
+- **Two compositors:** the CPU compositor renders the canvas and is the reference oracle; the wgpu compositor is tested against it. The canvas display is wgpu by default with a CPU fallback, so zoom, the pixel grid and the pasteboard draw on the GPU.
 - **Copy-on-write tiles:** 256² sparse tiles make undo cheap and huge canvases light, and effect maps are cached per layer state.
-- **Android shell:** the same engine behind a touch-first egui shell (`apps/niveta-android`), packaged with xbuild. No Electron, no web view, no Java UI.
+- **Android shell:** `apps/niveta-android` puts the same engine behind a touch chrome and packages it with xbuild. No Electron, no web view, no Java UI.
 - **Clean-room:** implemented from public specs and observed behaviour only. No proprietary code, shaders or assets.
-- **Tested:** more than 1,700 tests, including PSD round trips, synthetic generators, compositor oracles and multi-depth checks.
+- **Tested:** more than 4,600 tests (`cargo xtask stats`), including PSD round trips, synthetic generators, compositor oracles and multi-depth checks.
 
 ## Get started
 
@@ -206,35 +212,32 @@ CRAFT_FONTS_DIR="$PWD/../craft-fonts" cargo xtask android build --release
 
 New contributors and AI agents: start with [`AGENTS.md`](AGENTS.md), then [`docs/`](docs/).
 
-Releases ship a signed APK (`app.niveta`); see [`docs/releasing.md`](docs/releasing.md).
+Release builds ship a signed APK (`app.niveta`); see [`docs/releasing.md`](docs/releasing.md).
 
 > [!IMPORTANT]
-> **Status:** Niveta is in early alpha, and we want to be straight about where it stands: much of Photoshop's feature surface exists in some form, but **it is not yet a Photoshop replacement for daily professional work**. The biggest gaps are AI/generative features, about twenty missing tools, depth in typography and pro workflows, and plug-in compatibility. Every Photoshop menu item is wired to a command ([`docs/parity.md`](docs/parity.md)), but that measures wiring, not behaviour. The honest, dimension-by-dimension picture and where we're going next are in the [roadmap's parity assessment](docs/roadmap.md#honest-parity-assessment-2026-10-05). Expect rough edges, and please file issues (include your OS, document size, layer count and a screenshot). You can also tell us what broke on [Discord](https://discord.gg/artcraft).
+> **Status:** Niveta is in early alpha, and we want to be straight about where it stands: much of Photoshop's feature surface exists in some form, but **it is not yet a Photoshop replacement for daily professional work**. The biggest gaps are AI/generative features, about twenty missing tools, depth in typography and pro workflows, and plug-in compatibility. Every Photoshop menu item is wired to a command ([`docs/parity.md`](docs/parity.md)), but that measures wiring, not behaviour. The honest, dimension-by-dimension picture and where we're going next are in the [roadmap's parity assessment](docs/roadmap.md#honest-parity-assessment-2026-10-05). Expect rough edges, and please file issues with your device, Android version, document size, layer count and a screenshot.
 
 ## Documentation
 
-Developer, architecture, format, and security documentation is maintained in the [Niveta documentation book](book/).
+The docs live in [`docs/`](docs/). Start with [`architecture.md`](docs/architecture.md) for the crate map and the engine/UI seam, then [`development.md`](docs/development.md) for the build, the device loop and the test corpora. The generated [`parity.md`](docs/parity.md) and [`scorecard.md`](docs/scorecard.md) say where the Photoshop surface actually stands.
 
 ## Security
 
-Security architecture, threat modeling, parser hardening, fuzzing, and vulnerability reporting are covered in the [security documentation](book/src/security/) and the repository [security policy](SECURITY.md).
+The repository [security policy](SECURITY.md) covers reporting a vulnerability and handling malicious files. Parser hardening and the fuzz target live in `crates/psd/fuzz`, under the never-crash rules in [`AGENTS.md`](AGENTS.md).
 
 ## Test corpora
 
 Niveta reuses PhotoCraft's PSD test corpus (`photocraft-corpus`), alongside the `psd-tools`, `ag-psd` and PngSuite test sets. All datasets are pinned and SHA-256-verified. Fetch them with `cargo xtask corpus --all` and run the tests with `cargo xtask test-corpus` (see [docs/development.md](docs/development.md) for details).
+
 ## Downloads
 
-
-
-**Want a specific build or format?** On GitHub, the [latest release](https://github.com/keyarr/niveta/releases/latest) has every build listed below, and [all releases](https://github.com/keyarr/niveta/releases) has earlier versions and their notes. `<ver>` in the file names is the version number, and `SHA256SUMS.txt` lists a checksum for every file.
+No builds are published yet. Niveta is in early alpha, and for now the way to run it is to build the APK yourself with `cargo xtask android build`. Release builds will be attached to the [releases page](https://github.com/keyarr/niveta/releases), with `<ver>` in the file names and a `SHA256SUMS.txt` checksum for every file.
 
 ### Android
 
 | Build | File | Notes |
 |---|---|---|
 | APK, arm64 | `niveta-<ver>-android-arm64.apk` | Signed; `adb install` it or sideload from the file manager |
-
-
 
 ## License and credits
 
@@ -244,7 +247,4 @@ Bundled fonts, icons, images and other assets retain their own licenses. See `AT
 
 **Niveta is an independent fork and is not affiliated with, sponsored by, or endorsed by the ArtCraft Team. The ArtCraft name, wordmark and logos are trademarks of the ArtCraft Team and are not covered by the software licenses. Niveta is based on PhotoCraft by the ArtCraft Team.**
 
-
 <sub>Adobe and Photoshop, are trademarks or registered trademarks of Adobe Inc. in the United States and/or other countries. Niveta is an independent, open-source project and is not affiliated with, sponsored by or endorsed by Adobe Inc.; these names are used only to describe the workflows it is compatible with.</sub>
-
-
