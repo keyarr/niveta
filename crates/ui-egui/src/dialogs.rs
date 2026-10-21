@@ -220,10 +220,6 @@ pub fn show(app: &mut NivetaApp, ctx: &egui::Context) {
                 DialogKind::Command if fields.contains_key("__sizing") => crate::sizing::body(ui, &mut fields),
                 DialogKind::Command if crate::adjust_dialog::owns(&fields) => crate::adjust_dialog::body(app, ui, &mut fields),
                 DialogKind::Command if fields.contains_key("__filter") => {
-                    // Color Settings: the monitor profile in use can change while it is open.
-                    if fields.get("__command").and_then(Value::as_str) == Some("edit.colorSettings") {
-                        fields.insert("__note".into(), Value::String(crate::monitor_status::note(app)));
-                    }
                     // Long parameter lists (Flame, Lighting Effects) scroll, so the title and the
                     // OK / Cancel buttons stay inside a small window.
                     let room = (ctx.content_rect().height() - DIALOG_CHROME).max(120.0);

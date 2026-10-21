@@ -449,8 +449,7 @@ pub fn title_bar(app: &mut NivetaApp, ui: &mut egui::Ui) {
                     crate::brand::paint_mark(ui, mark);
                     ui.add_space(6.0);
                 }
-                // With the macOS menu bar the menus are at the top of the screen instead.
-                menus_right = if app.services.native_menu.is_some() { ui.cursor().left() } else { crate::menus::menu_bar(app, ui) };
+                menus_right = crate::menus::menu_bar(app, ui);
                 // The menu bar takes the whole row, so the right-hand group gets its own rect:
                 // from the menus to the bar's end, or to the caption buttons.
                 let right_edge = if custom { full.right() - crate::titlebar::WIDTH - 4.0 } else { full.right() };

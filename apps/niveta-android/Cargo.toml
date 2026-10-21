@@ -15,10 +15,10 @@ crate-type = ["cdylib", "rlib"]
 name = "niveta-android"
 path = "src/main.rs"
 
-# Second isolated `unsafe` spot in the workspace (the first is crates/tablet):
-# `android_main` must be unmangled for android-activity's glue to resolve it.
-# Only `src/android.rs` allows it, for that one linking attribute; every other
-# file keeps deny, and the function body is safe Rust.
+# The isolated `unsafe` spot in the workspace: `android_main` must be unmangled
+# for android-activity's glue to resolve it. Only `src/android.rs` allows it,
+# for that one linking attribute; every other file keeps deny, and the function
+# body is safe Rust.
 [lints.rust]
 unsafe_code = "deny"
 

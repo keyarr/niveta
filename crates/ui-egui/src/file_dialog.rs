@@ -6,9 +6,7 @@
 //! window as its parent (so it is modal to the window, as Photoshop's are) and continues the
 //! action once the platform shell answers through the [`FileDialogReply`], from any thread. The
 //! window keeps drawing and answering the compositor meanwhile. A dialog run to completion inside
-//! the frame froze the window (Linux compositors offered to kill it, #574) and, on macOS, ran
-//! AppKit's modal loop inside winit's event handler, which aborts the app when another event
-//! arrives (#673).
+//! the frame froze the window and dropped input events.
 //!
 //! One dialog at a time: asking while one is open is refused.
 

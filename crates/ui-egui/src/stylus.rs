@@ -1,24 +1,9 @@
 //! Stylus input: real pen pressure (and tilt / barrel rotation where the platform reports them)
 //! for the painting tools. A mouse always paints at pressure 1 with no tilt.
 //!
-//! Sources, by platform (eframe 0.36.2, egui-winit 0.36.2, winit 0.30.13):
-//!
-//! - **Windows**: winit turns `WM_POINTER` pen and touch input into `WindowEvent::Touch` with a
-//!   normalised force (`POINTER_PEN_INFO::pressure / 1024`); egui-winit forwards it as
-//!   `egui::Event::Touch { force }` alongside the emulated pointer. [`Stylus::update`] reads it.
-//!   winit drops the pen's tilt and rotation, so those stay 0.
-//! - **Web**: eframe forwards touch force but not pen pointer events, so the web runner listens
-//!   to `pointerdown`/`pointermove` itself and writes `pressure`, `tiltX`, `tiltY`, `twist` and
-//!   the eraser button of `pointerType == "pen"` events into the [`StylusFeed`].
-//! - **macOS**: winit 0.30 drops `NSEvent` tablet data, so the desktop app installs an AppKit
-//!   local event monitor (the `niveta-tablet` crate) that writes pressure, tilt, rotation and
-//!   the eraser end into the [`StylusFeed`] before winit handles each event.
-//! - **Linux X11**: the desktop app reads XInput2 raw valuator events on its own X connection
-//!   (`niveta-tablet`, x11rb) and writes them into the [`StylusFeed`].
-//! - **Linux Wayland**: compositors give a pen only to clients that bind `zwp_tablet_v2`, which
-//!   winit doesn't (it would have to share winit's connection), so with a pen attached the
-//!   desktop app opens its window through Xwayland, which reports tablet valuators to the X11
-//!   reader. `NIVETA_NATIVE_WAYLAND=1` keeps native Wayland, where the pen has no input.
+//! Touch and pen contacts arrive as `egui::Event::Touch { force }`, which [`Stylus::update`]
+//! reads. A host with finer pen data (a desktop tablet monitor, a web runner listening to
+//! Pointer Events) writes it into the [`StylusFeed`] instead, which wins over touch force.
 //!
 //! Preferences › Tools › Use Tablet Pressure off makes a pen paint like a mouse. Flipping the pen
 //! to its eraser end selects the Eraser tool and flipping back restores the previous tool, as in

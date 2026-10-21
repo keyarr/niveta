@@ -93,10 +93,8 @@ pub mod menu_nav;
 pub mod menus;
 pub mod mobile_export;
 pub mod mobile_ui;
-pub mod monitor_status;
 pub mod move_mods;
 pub mod move_ui;
-pub mod native_menu;
 pub mod new_doc_ui;
 pub mod notices;
 mod opacity_keys;
@@ -329,11 +327,7 @@ pub struct Services {
     /// `niveta_engine::preset_store`). Attached to the session once it arrives; without
     /// one, brush presets are session-only (web, tests).
     pub preset_store: Option<std::sync::mpsc::Receiver<niveta_engine::preset_store::Opened>>,
-    /// Reads the displays and their ICC profiles in the background (desktop macOS; see
-    /// `monitor_status`). Without one, the canvas uses the profile chosen in Color Settings, or sRGB.
-    pub read_displays: Option<monitor_status::ReadDisplaysFn>,
     /// The macOS menu bar, when the desktop app installed one; the in-window menus are hidden then.
-    pub native_menu: Option<native_menu::NativeMenu>,
     /// Ends the app once leaving is settled (nothing unsaved, or the prompt answered), instead of
     /// letting eframe close the window. macOS: `-[NSApplication terminate:]`. Closing the window
     /// while AppKit's run loop is still going crashes or hangs Touch Bar Macs (#1575, #1458).
@@ -364,8 +358,6 @@ pub struct NivetaApp {
     canvases: HashMap<(DocId, u32), canvas::CanvasCache>,
     /// Navigator textures belong to open documents, not the lifetime of the egui context.
     navigator_textures: HashMap<DocId, canvas::NavigatorCache>,
-    /// Display profile readings (#569).
-    monitors: monitor_status::State,
     checker: Option<egui::TextureHandle>,
     drag: Option<canvas::Drag>,
     /// Brush/Eraser stroke being drawn, rendered by the engine (see `canvas::LiveStroke`).
@@ -556,7 +548,6 @@ impl NivetaApp {
             services,
             canvases: HashMap::new(),
             navigator_textures: HashMap::new(),
-            monitors: Default::default(),
             checker: None,
             drag: None,
             live_stroke: None,
@@ -1131,7 +1122,6 @@ impl eframe::App for NivetaApp {
             self.checker = None;
         }
         self.drain_control(ctx);
-        native_menu::run(self, ctx);
         if self.ui.text_edit.is_some() && !self.ui.tool.is_type() {
             type_tool::commit(self);
         }
@@ -1142,7 +1132,6 @@ impl eframe::App for NivetaApp {
         self.collect_screenshots(ctx);
         self.issue_screenshots(ctx);
         prefs_ui::tick(self, ctx);
-        monitor_status::poll(self, ctx);
         // Control requests and persisted preferences can change the language in this frame.
         i18n::sync_context(ctx, &self.session.prefs().interface.language);
         // A window bigger than its display (1440 × 900 on 1366 × 768) runs under the taskbar:
@@ -1197,10 +1186,6 @@ impl eframe::App for NivetaApp {
     }
 
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
-        // Native menu key equivalents become the key presses they were (see `native_menu`).
-        if let Some(menu) = self.services.native_menu.as_mut() {
-            menu.raw_input(raw_input);
-        }
         shortcuts::clipboard_keys(ctx, ctx.text_edit_focused() || self.ui.text_edit.is_some(), raw_input);
         // Windows sends a touchpad pinch as Ctrl + wheel; make it a pinch again (wheel_nav.rs).
         if cfg!(target_os = "windows") {
@@ -1323,7 +1308,6 @@ impl eframe::App for NivetaApp {
         // A device lost while drawing this frame: switch to the CPU canvas before the next one.
         gpu_status::check(self, &ctx);
         self.automation_input = false;
-        native_menu::sync(self, &ctx);
         if screen_picker::busy(&ctx) {
             // Block input without a backdrop: the worker may still be capturing the screen.
             egui::Modal::new(egui::Id::new("screen-color-wait")).frame(egui::Frame::NONE).backdrop_color(egui::Color32::TRANSPARENT).show(&ctx, |_| {});

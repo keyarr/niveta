@@ -2017,12 +2017,8 @@ fn hdr_preview(app: &NivetaApp, doc: &niveta_doc::Document) -> Option<[f32; 2]> 
 /// Draw one canvas view and handle its input. `primary` = main window (tools active).
 pub fn canvas_view(app: &mut NivetaApp, ui: &mut egui::Ui, idx: usize, rect: Rect, mut view: View, primary: bool) -> View {
     let ctx = ui.ctx().clone();
-    // The display this window is on: its monitor profile (#569). A document window on a display
-    // the last reading didn't know asks for a new one.
-    let output = crate::monitor_status::view_display(app, &ctx);
-    if !primary {
-        crate::monitor_status::check_window(app, &ctx);
-    }
+    let output: u32 = 0;
+    let display: Option<u32> = None;
     let full = rect;
     let rect = if primary { crate::rulers::content_rect(app, rect) } else { rect };
     let doc = app.session.documents()[idx].doc.clone();
@@ -2062,7 +2058,7 @@ pub fn canvas_view(app: &mut NivetaApp, ui: &mut egui::Ui, idx: usize, rect: Rec
     let img_rect = xf.doc_rect(doc.bounds());
     // Crop tool: the layers' pixels past the canvas while a frame is edited, under the canvas
     // (whose edge blends into them) and without its shadow.
-    let beyond = draw_beyond_canvas(app, &painter, &xf, idx, output);
+    let beyond = draw_beyond_canvas(app, &painter, &xf, idx, display);
     let drop_shadow = drop_shadow && !beyond;
     // Live adjustment previews on big documents use a downsampled proxy (see proxy.rs), unless
     // Preferences › Performance › Low Resolution Previews is off.
@@ -2094,8 +2090,8 @@ pub fn canvas_view(app: &mut NivetaApp, ui: &mut egui::Ui, idx: usize, rect: Rec
             },
             pixel_grid: false,
             view_key: egui::Id::new(("pc-canvas-proxy", ctx.viewport_id(), idx)).value(),
-            display: sync_display_lut(app, &doc, key, output),
-            output: output.unwrap_or(0),
+            display: sync_display_lut(app, &doc, key, display),
+            output,
             hdr: hdr_preview(app, &doc),
         };
         crate::gpu_canvas::GpuCanvas::paint(&painter, rect, params);
@@ -2115,8 +2111,8 @@ pub fn canvas_view(app: &mut NivetaApp, ui: &mut egui::Ui, idx: usize, rect: Rec
             },
             pixel_grid,
             view_key: egui::Id::new(("pc-canvas", ctx.viewport_id(), idx)).value(),
-            display: sync_display_lut(app, &doc, doc.id.0, output),
-            output: output.unwrap_or(0),
+            display: sync_display_lut(app, &doc, doc.id.0, display),
+            output,
             hdr: hdr_preview(app, &doc),
         };
         crate::gpu_canvas::GpuCanvas::paint(&painter, rect, params);
@@ -2145,7 +2141,7 @@ pub fn canvas_view(app: &mut NivetaApp, ui: &mut egui::Ui, idx: usize, rect: Rec
                 }
             }
         }
-        if let Some((tex, _scale)) = ensure_texture(app, &ctx, idx, output) {
+        if let Some((tex, _scale)) = ensure_texture(app, &ctx, idx, display) {
             if rotated {
                 paint_mapped_image(&painter, &xf, tex, Rect::from_min_max(Pos2::ZERO, pos2(1.0, 1.0)), size, Color32::WHITE);
             } else {
@@ -2202,7 +2198,7 @@ pub fn canvas_view(app: &mut NivetaApp, ui: &mut egui::Ui, idx: usize, rect: Rec
 
     // Pixel grid at high zoom, over pixels with content only (the GPU path draws its own).
     if !on_gpu && pixel_grid && crate::pixel_grid::shows_at(view.zoom) {
-        crate::pixel_grid::paint(app, &painter, &xf, idx, output, visible_doc_rect(&xf));
+        crate::pixel_grid::paint(app, &painter, &xf, idx, display, visible_doc_rect(&xf));
     }
 
     // View › Show › Layer Edges: the active layer's content bounds.
@@ -2845,7 +2841,7 @@ pub fn canvas_view(app: &mut NivetaApp, ui: &mut egui::Ui, idx: usize, rect: Rec
         } else if let Some(p) = response.hover_pos() {
             let alt = ui.input(|i| i.modifiers.alt);
             if !resizing && !alt && !app.ui.shell.sticky_alt {
-                draw_clone_preview(app, &painter, &xf, xf.to_doc(p), output);
+                draw_clone_preview(app, &painter, &xf, xf.to_doc(p), display);
             }
             let icon = match tool {
                 // Resizing the brush: the circle stays where the drag began (`brush_resize`).

@@ -63,7 +63,6 @@ pub fn system_info(app: &NivetaApp) -> Vec<String> {
     let mut v =
         vec![format!("Niveta {}", niveta_engine::build_info::long_version()), format!("Platform: {} {}", std::env::consts::OS, std::env::consts::ARCH)];
     v.extend(app.perf.gpu_info.lines());
-    v.extend(crate::monitor_status::summary_lines(app));
     v
 }
 

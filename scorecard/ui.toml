@@ -24,7 +24,7 @@ id = "UI-217-3"
 target = "File > Open starts in the last-used folder"
 status = "done"
 issue = 217
-note = "file_dialog.rs last_used_dir: open dialogs ask with initial_dir (the most recent file's folder) and apps services.rs passes it to rfd set_directory; open_starts_in_the_last_used_folder + last_used_dir_takes_the_most_recent_parent"
+note = "file_dialog.rs last_used_dir: open dialogs ask with initial_dir (the most recent file's folder) and the picker service passes it to rfd set_directory; open_starts_in_the_last_used_folder + last_used_dir_takes_the_most_recent_parent"
 
 [[item]]
 id = "UI-217-4"

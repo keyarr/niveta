@@ -308,9 +308,8 @@ pub(crate) fn invoke_unguarded(app: &mut NivetaApp, ctx: &egui::Context, id: &st
             app.set_theme(ctx, k);
             Ok(Value::Null)
         }
-        // The macOS app menu's Language (`native_menu::language_node`).
-        i if i.starts_with(crate::native_menu::LANGUAGE_PREFIX) => {
-            let code = &i[crate::native_menu::LANGUAGE_PREFIX.len()..];
+        i if i.starts_with("app.language.") => {
+            let code = &i["app.language.".len()..];
             if code != "auto" && !crate::i18n::Lang::all().any(|l| l.code() == code) {
                 return Err(format!("unknown UI language `{code}`"));
             }

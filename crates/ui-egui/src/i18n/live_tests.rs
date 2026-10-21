@@ -21,19 +21,6 @@ fn requested_languages_resolve_regional_preferences() {
 }
 
 #[test]
-fn ukrainian_native_app_menu_keeps_product_and_language_names() {
-    with_language(Lang::EN, || {
-        let h = harness();
-        let layout = crate::native_menu::niveta_layout(&crate::menus::menu_items(h.state()), lang("uk"), "uk");
-        for (id, label) in [("help.about", "Про Niveta"), (crate::native_menu::HIDE, "Приховати Niveta"), ("file.exit", "Вийти з Niveta")]
-        {
-            assert_eq!(layout.bar.find(id).map(|item| item.label.as_str()), Some(label), "{id}");
-        }
-        assert_eq!(layout.bar.find("app.language.uk").map(|item| (item.label.as_str(), item.checked)), Some(("Українська", Some(true))));
-    });
-}
-
-#[test]
 fn french_and_korean_plural_messages_keep_placeholders() {
     for (n, expected) in [(0, "0 élément"), (1, "1 élément"), (2, "2 éléments"), (21, "21 éléments")] {
         assert_eq!(trn(lang("fr"), n, "{n} item", "{n} items"), expected);
