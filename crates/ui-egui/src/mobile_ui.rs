@@ -487,22 +487,13 @@ pub fn tool_bar(app: &mut NivetaApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     egui::Panel::bottom("mobile_tools")
         .exact_size(68.0)
-        .frame(egui::Frame::NONE.fill(t.chrome).inner_margin(egui::Margin { left: 8, right: 8, top: 4, bottom: 12 }))
+        .frame(egui::Frame::NONE.fill(t.chrome).inner_margin(egui::Margin { left: 8, right: 8, top: 5, bottom: 15 }))
         .show(ui, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing.x = 4.0;
-                // Tools modal toggle button: uses neutral card style when open, never tool-accent selection border.
                 let tools_open = app.ui.mobile.tools_open;
-                let (tools_rect, tools_resp) = ui.allocate_exact_size(vec2(48.0, 48.0), Sense::click());
-                if tools_open {
-                    ui.painter().rect_filled(tools_rect, t.radius_sm, t.card);
-                    ui.painter().rect_stroke(tools_rect, t.radius_sm, egui::Stroke::new(1.0, t.card_border), StrokeKind::Inside);
-                } else if tools_resp.hovered() {
-                    ui.painter().rect_filled(tools_rect, t.radius_sm, t.hover);
-                }
-                let tools_tint = if tools_open || tools_resp.hovered() { t.text } else { t.icon };
-                icons::paint(ui, tools_rect, "grid-2x2", 22.0, tools_tint);
-                if tools_resp.on_hover_text(tl!("Tools")).clicked() {
+                let tools_resp = icons::button_with_icon_size(ui, "toolbox", 48.0, 24.0, tools_open, "Tools");
+                if tools_resp.clicked() {
                     app.ui.mobile.tools_open = !app.ui.mobile.tools_open;
                     if app.ui.mobile.tools_open {
                         app.ui.mobile.tools_filter.clear();
@@ -572,7 +563,7 @@ pub fn tool_bar(app: &mut NivetaApp, ui: &mut egui::Ui) {
         });
 }
 
-/// The tools a phone keeps one tap away; everything else is in the grid behind `grid-2x2`.
+/// The tools a phone keeps one tap away; everything else is in the grid behind `toolbox`.
 fn favourites() -> [Tool; 10] {
     use Tool::*;
     [Move, RectMarquee, Lasso, Brush, Eraser, Gradient, CloneStamp, Type, Hand, Zoom]
@@ -597,27 +588,53 @@ pub fn tool_sheet(app: &mut NivetaApp, ctx: &egui::Context) {
         .constrain(true)
         .title_bar(false)
         .show(ctx, |ui| {
+            let t = Tokens::get(ui.ctx());
             ui.set_min_width(list_w);
             ui.set_max_width(list_w);
-            // Custom header: title left, X on the same row right.
-            ui.horizontal(|ui| {
-                ui.label(RichText::new(tl!("Tools")).size(14.0).strong());
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if icons::button(ui, "x", 40.0, false, tl!("Close")).clicked() {
-                        app.ui.mobile.tools_open = false;
-                    }
-                });
-            });
-            ui.add_space(4.0);
-            let avail = ui.available_width().max(200.0);
-            ui.add_sized(
-                vec2(avail, 40.0),
-                egui::TextEdit::singleline(&mut app.ui.mobile.tools_filter)
-                    .hint_text(tl!("Search commands, tools and panels…"))
-                    .desired_width(f32::INFINITY)
-                    .margin(vec2(10.0, 10.0)),
+            // Custom header: title left, X on the same row right, centered on the same Y axis.
+            ui.allocate_ui_with_layout(
+                vec2(ui.available_width(), 40.0),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    ui.label(RichText::new(tl!("Tools")).size(14.0).strong());
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let close = icons::button(ui, "x", 40.0, false, tl!("Close"));
+                        close.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), tl!("Close")));
+                        if close.clicked() {
+                            app.ui.mobile.tools_open = false;
+                        }
+                    });
+                },
             );
-            ui.add_space(6.0);
+            ui.add_space(8.0);
+            egui::Frame::NONE
+                .fill(t.field)
+                .stroke(egui::Stroke::new(1.0, t.field_border))
+                .corner_radius(t.radius_sm)
+                .inner_margin(egui::Margin { left: 10, right: 10, top: 4, bottom: 4 })
+                .show(ui, |ui| {
+                    let inner_w = ui.available_width();
+                    ui.allocate_ui_with_layout(
+                        vec2(inner_w, 32.0),
+                        egui::Layout::left_to_right(egui::Align::Center),
+                        |ui| {
+                            ui.spacing_mut().item_spacing.x = 8.0;
+                            let (icon_rect, icon_resp) = ui.allocate_exact_size(vec2(16.0, 16.0), Sense::click());
+                            icons::paint(ui, icon_rect, "search", 16.0, t.text_faint);
+                            let text_w = ui.available_width();
+                            let te_resp = ui.add(
+                                egui::TextEdit::singleline(&mut app.ui.mobile.tools_filter)
+                                    .hint_text(tl!("Search commands, tools and panels…"))
+                                    .frame(egui::Frame::NONE)
+                                    .desired_width(text_w),
+                            );
+                            if icon_resp.clicked() {
+                                te_resp.request_focus();
+                            }
+                        },
+                    );
+                });
+            ui.add_space(8.0);
             egui::ScrollArea::vertical()
                 .id_salt("mobile-tools-list")
                 .auto_shrink([false, false])
@@ -1239,6 +1256,50 @@ mod tests {
             let n = h.query_all_by_label_contains(probe).next().unwrap_or_else(|| panic!("the first row shows {probe}"));
             assert!(n.rect().min.y >= 0.0 && n.rect().max.y <= 800.0, "{probe} is inside the window: {:?}", n.rect());
         }
+    }
+
+    #[test]
+    fn tool_sheet_header_is_vertically_centered() {
+        use egui_kittest::kittest::Queryable;
+        let mut a = app();
+        a.run("file.new", json!({"width": 64, "height": 64})).unwrap();
+        a.ui.mobile.tools_open = true;
+        let mut h = Harness::builder().with_size(vec2(360.0, 800.0)).build_ui_state(
+            |ui, app: &mut NivetaApp| {
+                if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
+                    return;
+                }
+                let ctx = ui.ctx().clone();
+                tool_sheet(app, &ctx);
+            },
+            a,
+        );
+        NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
+        h.run_steps(8);
+        let title = h.query_all_by_label("Tools").find(|w| w.rect().height() < 50.0).expect("the Tools label is present").rect();
+        let close = h.query_all_by_label("Close").next().expect("the Close button is present").rect();
+        assert!((title.center().y - close.center().y).abs() <= 1.5, "title and close button are vertically centered: title {title:?}, close {close:?}");
+    }
+
+    #[test]
+    fn bar_toolbox_button_aligns_with_tool_buttons_and_toggles() {
+        let mut a = app();
+        let ctx = bar(&mut a);
+        let buttons = clickable(&ctx, vec2(48.0, 48.0));
+        assert!(buttons.len() >= 2, "bar renders toolbox and tool buttons");
+        let toolbox = buttons[0];
+        let first_tool = buttons[1];
+        assert_eq!(toolbox.min.x, 8.0, "toolbox button respects left margin");
+        assert_eq!(toolbox.size(), vec2(48.0, 48.0), "toolbox button has standard 48x48 size");
+        assert!((toolbox.center().y - first_tool.center().y).abs() <= 0.5, "toolbox button is vertically aligned with tool buttons");
+
+        // Tapping the toolbox button opens the tool sheet.
+        assert!(!a.ui.mobile.tools_open);
+        let center = toolbox.center();
+        bar_frame(&mut a, &ctx, 1.0, vec![egui::Event::PointerMoved(center), pointer(center, true)]);
+        bar_frame(&mut a, &ctx, 1.05, vec![pointer(center, false)]);
+        bar_frame(&mut a, &ctx, 1.1, vec![]);
+        assert!(a.ui.mobile.tools_open, "tapping the toolbox button opens tools");
     }
 
     /// The Adjustments tab starts at the top of the sheet: unshrunk horizontal pill
