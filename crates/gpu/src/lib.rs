@@ -796,8 +796,7 @@ impl Compositor {
     /// [`Self::forget_doc`] for every document `keep` rejects: what the compositor holds for
     /// documents that were closed, however their canvas entry went (#4529).
     pub fn retain_docs(&mut self, keep: impl Fn(DocId) -> bool) {
-        let mut gone: Vec<DocId> =
-            self.residents.values().map(|r| r.doc).chain(self.fx.values().map(|e| e.doc)).filter(|d| !keep(*d)).collect();
+        let mut gone: Vec<DocId> = self.residents.values().map(|r| r.doc).chain(self.fx.values().map(|e| e.doc)).filter(|d| !keep(*d)).collect();
         gone.sort_by_key(|d| d.0);
         gone.dedup();
         for d in gone {

@@ -254,10 +254,8 @@ fn has_extension(name: &str, expected: &str) -> bool {
 pub fn export(doc: &Document, name_or_ext: &str, opts: &ExportOptions) -> Result<ExportResult, IoError> {
     let ext = extension(name_or_ext);
     if ext == niveta_format::EXTENSION {
-        let previews = niveta_format::SaveOptions {
-            thumbnail: Some(niveta_compose::thumbnail(doc, 256)),
-            composite: Some(niveta_compose::thumbnail(doc, 1024)),
-        };
+        let previews =
+            niveta_format::SaveOptions { thumbnail: Some(niveta_compose::thumbnail(doc, 256)), composite: Some(niveta_compose::thumbnail(doc, 1024)) };
         return Ok(ExportResult { bytes: niveta_format::save_to_bytes(doc, &previews)?, warnings: Vec::new() });
     }
     if ext == "psd" || ext == "psb" {
@@ -326,7 +324,9 @@ mod open_set_tests {
     #[test]
     fn open_set_covers_what_import_opens() {
         let exts = open_extensions();
-        for must in ["pcraft", "psd", "psb", "png", "jpg", "jpeg", "tif", "tiff", "webp", "gif", "bmp", "svg", "svgz", "dng", "cr2", "nef", "arw", "exr", "hdr", "qoi"] {
+        for must in
+            ["pcraft", "psd", "psb", "png", "jpg", "jpeg", "tif", "tiff", "webp", "gif", "bmp", "svg", "svgz", "dng", "cr2", "nef", "arw", "exr", "hdr", "qoi"]
+        {
             assert!(exts.contains(&must), "open set misses {must}: {exts:?}");
         }
         assert!(!exts.contains(&"avif"), "AVIF is encode-only, not an open target: {exts:?}");

@@ -128,10 +128,8 @@ fn main() {
     // `--json out.json` (`cargo xtask perf`): open and first refresh (every op includes them),
     // the canvas texture size and the process's peak RSS.
     let json_out = arg(&args, "--json");
-    let mut json_rows = vec![
-        niveta_testkit::perf::row("open (decode + document)", &[t_open], None, None),
-        niveta_testkit::perf::row("first refresh", &[t_first], None, None),
-    ];
+    let mut json_rows =
+        vec![niveta_testkit::perf::row("open (decode + document)", &[t_open], None, None), niveta_testkit::perf::row("first refresh", &[t_first], None, None)];
     if let Some((g, _)) = gpu
         && let Some((format, bytes)) = g.texture_info(s.active().expect("doc").doc.id.0)
     {

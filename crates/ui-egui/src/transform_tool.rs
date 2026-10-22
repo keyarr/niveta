@@ -319,13 +319,7 @@ fn fold_made(app: &mut NivetaApp, made: MadeLayer) {
 /// Free Transform of a targeted unlinked layer mask, alpha channel or Quick Mask by itself: the
 /// box frames its content (within the selection) and previews the moving values in grey over the
 /// document with them vacated.
-fn begin_lone(
-    app: &mut NivetaApp,
-    ctx: &egui::Context,
-    doc: Arc<Document>,
-    surf: niveta_raster::Surface,
-    target: serde_json::Value,
-) -> Result<(), String> {
+fn begin_lone(app: &mut NivetaApp, ctx: &egui::Context, doc: Arc<Document>, surf: niveta_raster::Surface, target: serde_json::Value) -> Result<(), String> {
     use niveta_engine::transform_cmds as tc;
     let b = tc::target_bounds(&doc, &surf);
     if b.is_empty() {
@@ -569,13 +563,7 @@ pub fn leave_warp(app: &mut NivetaApp) {
 /// Texels of the moving pixels over `b`: full resolution unless the long side exceeds the GPU's
 /// `max_side` (#91: this used to be capped at 2048 px, so big layers previewed blurry), plus the
 /// uv extent covering `b`.
-fn preview_image(
-    doc: &Document,
-    id: LayerId,
-    lifted: Option<&niveta_raster::Surface>,
-    b: niveta_geom::Rect,
-    max_side: usize,
-) -> (egui::ColorImage, [f32; 2]) {
+fn preview_image(doc: &Document, id: LayerId, lifted: Option<&niveta_raster::Surface>, b: niveta_geom::Rect, max_side: usize) -> (egui::ColorImage, [f32; 2]) {
     let layer = doc.layer(id);
     // Linked masks move with the pixels, so the moving texels carry them (#205).
     let mask = layer.and_then(|l| preview_mask(l, b));
@@ -1437,13 +1425,7 @@ fn hot_handle(app: &NivetaApp, pv: &TransformPreview, xf: &ViewXform, pts: &[Pos
         return None;
     }
     let grab = if app.touch_active { HANDLE_TOUCH_PX as f32 } else { HANDLE_PX as f32 };
-    pts.iter()
-        .chain(mids.iter())
-        .enumerate()
-        .map(|(i, q)| (i, q.distance(p)))
-        .filter(|(_, d)| *d <= grab)
-        .min_by(|a, b| a.1.total_cmp(&b.1))
-        .map(|(i, _)| i)
+    pts.iter().chain(mids.iter()).enumerate().map(|(i, q)| (i, q.distance(p))).filter(|(_, d)| *d <= grab).min_by(|a, b| a.1.total_cmp(&b.1)).map(|(i, _)| i)
 }
 
 /// Drag-direction hint on the hot handle: horizontal for left/right edges,

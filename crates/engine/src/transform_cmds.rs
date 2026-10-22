@@ -25,8 +25,7 @@ pub fn transform_bounds(doc: &Document, layer: &Layer) -> Rect {
         LayerContent::Group(g) => g.children.iter().map(|l| transform_bounds(doc, l)).fold(Rect::EMPTY, |a, b| a.union(&b)),
         _ => layer.surface().map_or(Rect::EMPTY, niveta_compose::bounds::content_bounds),
     };
-    let content =
-        if content.is_empty() { layer.mask.as_ref().map_or(Rect::EMPTY, |m| niveta_compose::bounds::content_bounds(&m.surface)) } else { content };
+    let content = if content.is_empty() { layer.mask.as_ref().map_or(Rect::EMPTY, |m| niveta_compose::bounds::content_bounds(&m.surface)) } else { content };
     match &doc.selection {
         Some(sel) if !layer.is_group() => content.intersect(&sel.content_bounds()),
         _ => content,
@@ -422,10 +421,10 @@ fn transform(s: &mut Session, p: &Value) -> Result<Value> {
 /// drives the live session instead; this is the headless single-shot (CLI, MCP, actions).
 fn rotate(s: &mut Session, p: &Value) -> Result<Value> {
     const CMD: &str = "edit.transform.rotate";
-    let deg = p.get("angle").and_then(Value::as_f64).ok_or_else(|| EngineError::BadParams {
-        cmd: CMD.into(),
-        msg: "missing `angle` (-360..=360, degrees clockwise)".into(),
-    })?;
+    let deg = p
+        .get("angle")
+        .and_then(Value::as_f64)
+        .ok_or_else(|| EngineError::BadParams { cmd: CMD.into(), msg: "missing `angle` (-360..=360, degrees clockwise)".into() })?;
     if !deg.is_finite() || deg.abs() > 360.0 {
         return Err(EngineError::BadParams { cmd: CMD.into(), msg: format!("angle {deg} is outside -360..=360") });
     }
@@ -471,7 +470,8 @@ fn rotate(s: &mut Session, p: &Value) -> Result<Value> {
     let [cx, cy] = pivot;
     let h = Homography([cs, -sn, cx - cx * cs + cy * sn, sn, cs, cy - cx * sn - cy * cs, 0.0, 0.0, 1.0]);
     let m = h.0;
-    let affine = (m[6].abs() < 1e-12 && m[7].abs() < 1e-12).then(|| Affine { m: [m[0] / m[8], m[3] / m[8], m[1] / m[8], m[4] / m[8], m[2] / m[8], m[5] / m[8]] });
+    let affine =
+        (m[6].abs() < 1e-12 && m[7].abs() < 1e-12).then(|| Affine { m: [m[0] / m[8], m[3] / m[8], m[1] / m[8], m[4] / m[8], m[2] / m[8], m[5] / m[8]] });
     let interp = Interp::parse(p.get("interpolation").and_then(Value::as_str).unwrap_or("bicubic"));
     let lone = lone.is_some();
     s.edit("Rotate", |doc, _| {

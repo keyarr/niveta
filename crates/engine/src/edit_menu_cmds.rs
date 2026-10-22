@@ -285,9 +285,9 @@ fn can_purge_histories(s: &Session) -> std::result::Result<(), String> {
     if s.documents().iter().any(|d| d.history.can_undo() || d.history.can_redo()) { Ok(()) } else { Err("no history to purge".into()) }
 }
 fn can_purge_all(s: &Session) -> std::result::Result<(), String> {
-    can_purge_histories(s).or_else(|_| can_purge_clipboard(s)).or_else(|_| {
-        if niveta_compose::effect_cache_bytes() > 0 || niveta_compose::masks::cache_bytes() > 0 { Ok(()) } else { Err("nothing to purge".into()) }
-    })
+    can_purge_histories(s)
+        .or_else(|_| can_purge_clipboard(s))
+        .or_else(|_| if niveta_compose::effect_cache_bytes() > 0 || niveta_compose::masks::cache_bytes() > 0 { Ok(()) } else { Err("nothing to purge".into()) })
 }
 
 // ------------------------------------------------------------------ Content-Aware Fill

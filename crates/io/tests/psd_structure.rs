@@ -443,11 +443,7 @@ fn guides_and_alpha_names_roundtrip() {
     for name in ["Spot \u{e9}", "Alpha 2"] {
         d.channels.push(niveta_doc::AlphaChannel::new(
             name,
-            niveta_raster::Surface::new(niveta_color::PixelFormat::new(
-                niveta_color::ColorMode::Grayscale,
-                niveta_color::SampleType::U8,
-                false,
-            )),
+            niveta_raster::Surface::new(niveta_color::PixelFormat::new(niveta_color::ColorMode::Grayscale, niveta_color::SampleType::U8, false)),
         ));
     }
     let f = document_to_psd(&d);
@@ -495,8 +491,7 @@ fn merged_composite_unmattes_photoshop_white() {
     // HDR and negative straight samples must survive the actual F32 PSD import boundary.
     let mut hdr = testgen::merged_only(Version::Psd, ColorMode::Rgb, 32, Compression::Raw, 1, 1);
     hdr.header.channels = 4;
-    hdr.image_data =
-        niveta_psd::ImageData { compression: Compression::Raw, data: [1.5_f32, 0.25, 0.5, 0.5].into_iter().flat_map(f32::to_be_bytes).collect() };
+    hdr.image_data = niveta_psd::ImageData { compression: Compression::Raw, data: [1.5_f32, 0.25, 0.5, 0.5].into_iter().flat_map(f32::to_be_bytes).collect() };
     let imported = import("hdr.psd", &hdr.to_bytes().unwrap()).unwrap().document;
     assert_eq!(imported.depth, niveta_color::SampleType::F32);
     assert_eq!(imported.layers[0].surface().unwrap().pixel(0, 0), vec![2.0, -0.5, 0.0, 0.5]);

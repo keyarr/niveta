@@ -196,7 +196,10 @@ pub fn header(app: &mut NivetaApp, ui: &mut egui::Ui) {
                         menu_item(ui, app, tl!("New…"), "file.new");
                         // Same as the Home-screen button: a build with no picker explains
                         // instead of flashing "cancelled".
-                        if ui.add_enabled(crate::menus::is_enabled(app, "file.open"), egui::Button::new(tl!("Open…")).min_size(vec2(MENU_W, MENU_ROW_H))).clicked() {
+                        if ui
+                            .add_enabled(crate::menus::is_enabled(app, "file.open"), egui::Button::new(tl!("Open…")).min_size(vec2(MENU_W, MENU_ROW_H)))
+                            .clicked()
+                        {
                             app.open_interactive();
                             ui.close();
                         }
@@ -323,31 +326,28 @@ pub fn options_strip(app: &mut NivetaApp, ui: &mut egui::Ui) {
         return;
     }
     let t = Tokens::get(ui.ctx());
-    egui::Panel::top("mobile_options")
-        .exact_size(48.0)
-        .frame(egui::Frame::NONE.fill(t.chrome).inner_margin(egui::Margin::symmetric(8, 0)))
-        .show(ui, |ui| {
-            let rest = ui.available_width().max(80.0);
-            egui::ScrollArea::horizontal()
-                .id_salt("mobile-options-scroll")
-                .auto_shrink([false, false])
-                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
-                .max_width(rest)
-                .show(ui, |ui| {
-                    // `horizontal` sized the row to its content and pinned it to the strip's
-                    // top edge; centered allocates the strip's height and aligns the controls
-                    // with the header's, like the desktop bar's own `horizontal_centered`.
-                    ui.horizontal_centered(|ui| {
-                        ui.spacing_mut().item_spacing.x = 8.0;
-                        if app.ui.transform.is_some() {
-                            crate::transform_tool::mobile_options_bar(app, ui);
-                        } else {
-                            crate::panels::options_content(app, ui);
-                        }
-                        ui.add_space(24.0);
-                    });
+    egui::Panel::top("mobile_options").exact_size(48.0).frame(egui::Frame::NONE.fill(t.chrome).inner_margin(egui::Margin::symmetric(8, 0))).show(ui, |ui| {
+        let rest = ui.available_width().max(80.0);
+        egui::ScrollArea::horizontal()
+            .id_salt("mobile-options-scroll")
+            .auto_shrink([false, false])
+            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+            .max_width(rest)
+            .show(ui, |ui| {
+                // `horizontal` sized the row to its content and pinned it to the strip's
+                // top edge; centered allocates the strip's height and aligns the controls
+                // with the header's, like the desktop bar's own `horizontal_centered`.
+                ui.horizontal_centered(|ui| {
+                    ui.spacing_mut().item_spacing.x = 8.0;
+                    if app.ui.transform.is_some() {
+                        crate::transform_tool::mobile_options_bar(app, ui);
+                    } else {
+                        crate::panels::options_content(app, ui);
+                    }
+                    ui.add_space(24.0);
                 });
-        });
+            });
+    });
 }
 
 /// Floating pill centered at the bottom of the canvas for Transform confirm and cancel actions.
@@ -356,45 +356,38 @@ pub fn transform_floating_pill(app: &mut NivetaApp, ctx: &egui::Context) {
         return;
     }
     let screen = ctx.content_rect();
-    let offset_y = if app.ui.mobile.panel.is_some() {
-        - (screen.height() * 0.45).clamp(260.0, 420.0) - 16.0
-    } else {
-        -76.0
-    };
-    egui::Area::new(egui::Id::new("mobile-transform-pill"))
-        .order(egui::Order::Foreground)
-        .anchor(Align2::CENTER_BOTTOM, vec2(0.0, offset_y))
-        .show(ctx, |ui| {
-            let t = Tokens::get(ui.ctx());
-            egui::Frame::popup(ui.style())
-                .fill(t.chrome)
-                .stroke(egui::Stroke::new(1.0, t.separator))
-                .corner_radius(20.0)
-                .inner_margin(egui::Margin::symmetric(14, 6))
-                .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = 16.0;
-                        let warping = app.ui.transform.as_ref().is_some_and(|t| t.warp.is_some());
-                        let cancel_tip = if warping { tl!("Cancel warp (Esc)") } else { tl!("Cancel transform (Esc)") };
-                        let cancel_btn = icons::button_with_icon_size(ui, "ban", 36.0, 20.0, false, cancel_tip);
-                        cancel_btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Cancel transform"));
-                        if cancel_btn.clicked() {
-                            crate::transform_tool::cancel(app);
-                        }
-                        widgets::vline(ui, 20.0);
-                        let commit_tip = if warping {
-                            crate::i18n::fmt(tl!("Commit warp ({key})"), &[("key", &crate::shortcuts::pretty("Enter"))])
-                        } else {
-                            crate::i18n::fmt(tl!("Commit transform ({key})"), &[("key", &crate::shortcuts::pretty("Enter"))])
-                        };
-                        let commit_btn = icons::button_with_icon_size(ui, "check", 36.0, 20.0, false, &commit_tip);
-                        commit_btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Commit transform"));
-                        if commit_btn.clicked() {
-                            crate::transform_tool::commit(app);
-                        }
-                    });
+    let offset_y = if app.ui.mobile.panel.is_some() { -(screen.height() * 0.45).clamp(260.0, 420.0) - 16.0 } else { -76.0 };
+    egui::Area::new(egui::Id::new("mobile-transform-pill")).order(egui::Order::Foreground).anchor(Align2::CENTER_BOTTOM, vec2(0.0, offset_y)).show(ctx, |ui| {
+        let t = Tokens::get(ui.ctx());
+        egui::Frame::popup(ui.style())
+            .fill(t.chrome)
+            .stroke(egui::Stroke::new(1.0, t.separator))
+            .corner_radius(20.0)
+            .inner_margin(egui::Margin::symmetric(14, 6))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 16.0;
+                    let warping = app.ui.transform.as_ref().is_some_and(|t| t.warp.is_some());
+                    let cancel_tip = if warping { tl!("Cancel warp (Esc)") } else { tl!("Cancel transform (Esc)") };
+                    let cancel_btn = icons::button_with_icon_size(ui, "ban", 36.0, 20.0, false, cancel_tip);
+                    cancel_btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Cancel transform"));
+                    if cancel_btn.clicked() {
+                        crate::transform_tool::cancel(app);
+                    }
+                    widgets::vline(ui, 20.0);
+                    let commit_tip = if warping {
+                        crate::i18n::fmt(tl!("Commit warp ({key})"), &[("key", &crate::shortcuts::pretty("Enter"))])
+                    } else {
+                        crate::i18n::fmt(tl!("Commit transform ({key})"), &[("key", &crate::shortcuts::pretty("Enter"))])
+                    };
+                    let commit_btn = icons::button_with_icon_size(ui, "check", 36.0, 20.0, false, &commit_tip);
+                    commit_btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Commit transform"));
+                    if commit_btn.clicked() {
+                        crate::transform_tool::commit(app);
+                    }
                 });
-        });
+            });
+    });
 }
 
 /// Temp-data namespaces of the two long-press cards: the bottom bar's and the tool grid's,
@@ -472,38 +465,40 @@ fn variant_card(app: &mut NivetaApp, ui: &egui::Ui, anchor: Rect, subtools: &[To
     let label_w = labels.iter().map(|l| ui.painter().layout_no_wrap((*l).to_owned(), font.clone(), t.text).size().x).fold(0.0f32, f32::max);
     let w = (label_w + 46.0).clamp(160.0, (ui.ctx().content_rect().width() - 16.0).max(140.0));
     let h = subtools.len() as f32 * 36.0 + (subtools.len().saturating_sub(1)) as f32 * 3.0 + 12.0;
-    let area = egui::Area::new(card_id)
-        .order(egui::Order::Tooltip)
-        .fixed_pos(anchor.left_top() - vec2(0.0, h + 8.0))
-        .constrain(true)
-        .show(ui.ctx(), |ui| {
-            egui::Frame::popup(ui.style()).inner_margin(egui::Margin::symmetric(6, 6)).show(ui, |ui| {
-                ui.vertical(|ui| {
-                    ui.spacing_mut().item_spacing.y = 3.0;
-                    for (&sub, label) in subtools.iter().zip(&labels) {
-                        let is_sel = app.ui.tool == sub;
-                        let (r, resp) = ui.allocate_exact_size(vec2(w, 36.0), Sense::click());
-                        if is_sel {
-                            ui.painter().rect_filled(r, t.radius_sm, t.accent_soft);
-                            ui.painter().rect_stroke(r, t.radius_sm, egui::Stroke::new(1.0, t.accent_border), StrokeKind::Inside);
-                        } else if resp.hovered() {
-                            ui.painter().rect_filled(r, t.radius_sm, t.hover);
-                        }
-                        let tint = if is_sel { t.accent_text } else if resp.hovered() { t.text } else { t.icon };
-                        icons::paint(ui, Rect::from_center_size(pos2(r.left() + 18.0, r.center().y), vec2(20.0, 20.0)), icons::tool_icon(sub), 18.0, tint);
-                        let color = if is_sel { t.accent_text } else { t.text };
-                        let mut job = egui::text::LayoutJob::simple_singleline((*label).to_owned(), font.clone(), color);
-                        job.wrap = egui::text::TextWrapping::truncate_at_width((w - 42.0).max(1.0));
-                        let g = ui.painter().layout_job(job);
-                        ui.painter().galley(pos2(r.left() + 36.0, r.center().y - g.size().y / 2.0), g, color);
-                        if resp.clicked() {
-                            app.ui.tool = sub;
-                            ui.data_mut(|d| d.remove::<Tool>(card_id));
-                        }
+    let area = egui::Area::new(card_id).order(egui::Order::Tooltip).fixed_pos(anchor.left_top() - vec2(0.0, h + 8.0)).constrain(true).show(ui.ctx(), |ui| {
+        egui::Frame::popup(ui.style()).inner_margin(egui::Margin::symmetric(6, 6)).show(ui, |ui| {
+            ui.vertical(|ui| {
+                ui.spacing_mut().item_spacing.y = 3.0;
+                for (&sub, label) in subtools.iter().zip(&labels) {
+                    let is_sel = app.ui.tool == sub;
+                    let (r, resp) = ui.allocate_exact_size(vec2(w, 36.0), Sense::click());
+                    if is_sel {
+                        ui.painter().rect_filled(r, t.radius_sm, t.accent_soft);
+                        ui.painter().rect_stroke(r, t.radius_sm, egui::Stroke::new(1.0, t.accent_border), StrokeKind::Inside);
+                    } else if resp.hovered() {
+                        ui.painter().rect_filled(r, t.radius_sm, t.hover);
                     }
-                });
+                    let tint = if is_sel {
+                        t.accent_text
+                    } else if resp.hovered() {
+                        t.text
+                    } else {
+                        t.icon
+                    };
+                    icons::paint(ui, Rect::from_center_size(pos2(r.left() + 18.0, r.center().y), vec2(20.0, 20.0)), icons::tool_icon(sub), 18.0, tint);
+                    let color = if is_sel { t.accent_text } else { t.text };
+                    let mut job = egui::text::LayoutJob::simple_singleline((*label).to_owned(), font.clone(), color);
+                    job.wrap = egui::text::TextWrapping::truncate_at_width((w - 42.0).max(1.0));
+                    let g = ui.painter().layout_job(job);
+                    ui.painter().galley(pos2(r.left() + 36.0, r.center().y - g.size().y / 2.0), g, color);
+                    if resp.clicked() {
+                        app.ui.tool = sub;
+                        ui.data_mut(|d| d.remove::<Tool>(card_id));
+                    }
+                }
             });
         });
+    });
     ui.data_mut(|d| d.insert_temp(card_id.with("rect"), area.response.rect));
 }
 
@@ -643,12 +638,17 @@ pub fn tool_sheet(app: &mut NivetaApp, ctx: &egui::Context) {
             let avail = ui.available_width().max(200.0);
             ui.add_sized(
                 vec2(avail, 40.0),
-                egui::TextEdit::singleline(&mut app.ui.mobile.tools_filter).hint_text(tl!("Search commands, tools and panels…")).desired_width(f32::INFINITY).margin(vec2(10.0, 10.0)),
+                egui::TextEdit::singleline(&mut app.ui.mobile.tools_filter)
+                    .hint_text(tl!("Search commands, tools and panels…"))
+                    .desired_width(f32::INFINITY)
+                    .margin(vec2(10.0, 10.0)),
             );
             ui.add_space(6.0);
-            egui::ScrollArea::vertical().id_salt("mobile-tools-list").auto_shrink([false, false]).max_height((screen.height() * 0.55).clamp(220.0, 480.0)).show(
-                ui,
-                |ui| {
+            egui::ScrollArea::vertical()
+                .id_salt("mobile-tools-list")
+                .auto_shrink([false, false])
+                .max_height((screen.height() * 0.55).clamp(220.0, 480.0))
+                .show(ui, |ui| {
                     ui.add_space(8.0);
                     let q = app.ui.mobile.tools_filter.trim().to_lowercase();
                     let sections = crate::panels::visible_sections(&app.session.prefs().toolbar.hidden);
@@ -674,10 +674,7 @@ pub fn tool_sheet(app: &mut NivetaApp, ctx: &egui::Context) {
                             }
                         });
                     } else {
-                        let slots: Vec<Vec<Tool>> = sections
-                            .iter()
-                            .flat_map(|section| section.iter().map(|(_, slot)| slot.clone()))
-                            .collect();
+                        let slots: Vec<Vec<Tool>> = sections.iter().flat_map(|section| section.iter().map(|(_, slot)| slot.clone())).collect();
                         egui::Grid::new("mobile-tools-grid").num_columns(cols).spacing([gap, gap]).show(ui, |ui| {
                             for (i, slot) in slots.iter().enumerate() {
                                 let active_in_slot = slot.iter().find(|&&t| t == app.ui.tool).copied();
@@ -693,8 +690,7 @@ pub fn tool_sheet(app: &mut NivetaApp, ctx: &egui::Context) {
                         });
                     }
                     ui.add_space(12.0);
-                },
-            );
+                });
         });
 }
 
@@ -748,81 +744,84 @@ pub fn sheet(app: &mut NivetaApp, ui: &mut egui::Ui) {
     let screen = ctx.content_rect();
     let h = (screen.height() * 0.45).clamp(260.0, 420.0);
     let t = Tokens::get(ui.ctx());
-    egui::Panel::bottom("mobile_sheet").exact_size(h).frame(egui::Frame::NONE.fill(t.dock).inner_margin(egui::Margin { left: 12, right: 12, top: 6, bottom: 6 })).show(ui, |outer| {
-        let body = outer.max_rect();
-        let clip = outer.clip_rect();
-        let mut inner = outer.new_child(egui::UiBuilder::new().max_rect(body).layout(egui::Layout::top_down(egui::Align::Min)));
-        inner.set_clip_rect(Rect::from_min_max(pos2(clip.min.x, body.min.y.max(clip.min.y)), pos2(clip.max.x, body.max.y.min(clip.max.y))));
-        let ui = &mut inner;
+    egui::Panel::bottom("mobile_sheet")
+        .exact_size(h)
+        .frame(egui::Frame::NONE.fill(t.dock).inner_margin(egui::Margin { left: 12, right: 12, top: 6, bottom: 6 }))
+        .show(ui, |outer| {
+            let body = outer.max_rect();
+            let clip = outer.clip_rect();
+            let mut inner = outer.new_child(egui::UiBuilder::new().max_rect(body).layout(egui::Layout::top_down(egui::Align::Min)));
+            inner.set_clip_rect(Rect::from_min_max(pos2(clip.min.x, body.min.y.max(clip.min.y)), pos2(clip.max.x, body.max.y.min(clip.max.y))));
+            let ui = &mut inner;
 
-        let pro = Tokens::get(ui.ctx()).pro;
-        let tabs = group.tabs(pro);
-        let has_subtabs = tabs.len() > 1;
+            let pro = Tokens::get(ui.ctx()).pro;
+            let tabs = group.tabs(pro);
+            let has_subtabs = tabs.len() > 1;
 
-        // Unified 40pt header row: horizontally scrolling group pills with safety margin,
-        // compact dropdown selector for subtabs, and fixed Close button on the right.
-        let row_w = ui.available_width();
-        ui.allocate_ui_with_layout(vec2(row_w, 40.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
-            ui.spacing_mut().item_spacing.x = 4.0;
-            let mut groups = vec![
-                (crate::dock::Group::Color, tl!("Color")),
-                (crate::dock::Group::Properties, tl!("Properties")),
-                (crate::dock::Group::Layers, tl!("Layers")),
-                (crate::dock::Group::History, tl!("History")),
-                (crate::dock::Group::Navigator, tl!("Navigator")),
-            ];
-            if app.ui.panels.character {
-                groups.push((crate::dock::Group::Character, tl!("Character")));
-            }
-            let right_reserve = 32.0 + if has_subtabs { 100.0 } else { 0.0 } + 16.0;
-            let rest = (row_w - right_reserve).max(64.0);
-            egui::ScrollArea::horizontal()
-                .id_salt("mobile-sheet-groups")
-                .auto_shrink([true, true])
-                .max_width(rest)
-                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
-                .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = 4.0;
-                        for (g, label) in groups {
-                            if widgets::pill_tab(ui, label, group == g).clicked() {
-                                app.ui.mobile.panel = if group == g { None } else { Some(g) };
-                            }
-                        }
-                        ui.add_space(8.0);
-                    });
-                });
-
-            if has_subtabs {
-                let mut sel = tab_index(&app.ui.dock_tabs, group).min(tabs.len().saturating_sub(1));
-                let opts: Vec<(usize, &str)> = tabs.iter().enumerate().map(|(i, &tab_name)| (i, tl!(tab_name))).collect();
-                // Long tab names (Layer Comps in most languages) must not widen the row past Close.
-                let picked = ui.scope(|ui| {
-                    ui.set_max_width(92.0);
-                    widgets::dropdown(ui, "mobile-sheet-subtab", &mut sel, &opts, 92.0)
-                });
-                if picked.inner {
-                    *tab_index_mut(&mut app.ui.dock_tabs, group) = sel;
+            // Unified 40pt header row: horizontally scrolling group pills with safety margin,
+            // compact dropdown selector for subtabs, and fixed Close button on the right.
+            let row_w = ui.available_width();
+            ui.allocate_ui_with_layout(vec2(row_w, 40.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                ui.spacing_mut().item_spacing.x = 4.0;
+                let mut groups = vec![
+                    (crate::dock::Group::Color, tl!("Color")),
+                    (crate::dock::Group::Properties, tl!("Properties")),
+                    (crate::dock::Group::Layers, tl!("Layers")),
+                    (crate::dock::Group::History, tl!("History")),
+                    (crate::dock::Group::Navigator, tl!("Navigator")),
+                ];
+                if app.ui.panels.character {
+                    groups.push((crate::dock::Group::Character, tl!("Character")));
                 }
-            }
+                let right_reserve = 32.0 + if has_subtabs { 100.0 } else { 0.0 } + 16.0;
+                let rest = (row_w - right_reserve).max(64.0);
+                egui::ScrollArea::horizontal()
+                    .id_salt("mobile-sheet-groups")
+                    .auto_shrink([true, true])
+                    .max_width(rest)
+                    .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x = 4.0;
+                            for (g, label) in groups {
+                                if widgets::pill_tab(ui, label, group == g).clicked() {
+                                    app.ui.mobile.panel = if group == g { None } else { Some(g) };
+                                }
+                            }
+                            ui.add_space(8.0);
+                        });
+                    });
 
-            if icons::button(ui, "x", 32.0, false, tl!("Close")).clicked() {
-                app.ui.mobile.panel = None;
-            }
-        });
+                if has_subtabs {
+                    let mut sel = tab_index(&app.ui.dock_tabs, group).min(tabs.len().saturating_sub(1));
+                    let opts: Vec<(usize, &str)> = tabs.iter().enumerate().map(|(i, &tab_name)| (i, tl!(tab_name))).collect();
+                    // Long tab names (Layer Comps in most languages) must not widen the row past Close.
+                    let picked = ui.scope(|ui| {
+                        ui.set_max_width(92.0);
+                        widgets::dropdown(ui, "mobile-sheet-subtab", &mut sel, &opts, 92.0)
+                    });
+                    if picked.inner {
+                        *tab_index_mut(&mut app.ui.dock_tabs, group) = sel;
+                    }
+                }
 
-        let tab = tab_index(&app.ui.dock_tabs, group).min(tabs.len().saturating_sub(1));
-        if group.scrolls_itself(tab) {
-            crate::panels::dock_body(app, ui, group, tab);
-        } else {
-            egui::ScrollArea::vertical().id_salt(("mobile-sheet", group.key())).auto_shrink([false, false]).show(ui, |ui| {
-                ui.add_space(8.0);
-                crate::panels::dock_body(app, ui, group, tab);
-                ui.add_space(8.0);
+                if icons::button(ui, "x", 32.0, false, tl!("Close")).clicked() {
+                    app.ui.mobile.panel = None;
+                }
             });
-        }
-        outer.expand_to_include_rect(body);
-    });
+
+            let tab = tab_index(&app.ui.dock_tabs, group).min(tabs.len().saturating_sub(1));
+            if group.scrolls_itself(tab) {
+                crate::panels::dock_body(app, ui, group, tab);
+            } else {
+                egui::ScrollArea::vertical().id_salt(("mobile-sheet", group.key())).auto_shrink([false, false]).show(ui, |ui| {
+                    ui.add_space(8.0);
+                    crate::panels::dock_body(app, ui, group, tab);
+                    ui.add_space(8.0);
+                });
+            }
+            outer.expand_to_include_rect(body);
+        });
 }
 
 fn tab_index(tabs: &crate::state::DockTabs, group: crate::dock::Group) -> usize {
@@ -862,7 +861,12 @@ mod tests {
     /// drop the cursor on release, which makes egui see no click at all.)
     fn bar_frame(app: &mut NivetaApp, ctx: &egui::Context, time: f64, events: Vec<egui::Event>) {
         let mut out = ctx.run_ui(
-            egui::RawInput { time: Some(time), events, screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(360.0, 800.0))), ..Default::default() },
+            egui::RawInput {
+                time: Some(time),
+                events,
+                screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(360.0, 800.0))),
+                ..Default::default()
+            },
             |ui| tool_bar(app, ui),
         );
         out.textures_delta.clear();
@@ -1204,7 +1208,8 @@ mod tests {
         let ctx = egui::Context::default();
         NivetaApp::setup_context(&ctx, crate::theme::ThemeKind::Pro);
         // The themed fonts install on the first frame.
-        let mut out = ctx.run_ui(egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(320.0, 800.0))), ..Default::default() }, |_| {});
+        let mut out =
+            ctx.run_ui(egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(320.0, 800.0))), ..Default::default() }, |_| {});
         out.textures_delta.clear();
         let card = egui::Rect::from_min_size(egui::pos2(24.0, 400.0), vec2(78.7, 64.0));
         let tools: Vec<Tool> = crate::panels::visible_sections(&[]).into_iter().flatten().flat_map(|(_, slot)| slot).collect();
@@ -1220,7 +1225,6 @@ mod tests {
         }
         crate::i18n::set_current(crate::i18n::Lang::EN);
     }
-
 
     /// The sheet filter narrows the rows ("heal" keeps the healing tools, drops the brush).
     #[test]

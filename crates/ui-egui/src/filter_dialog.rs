@@ -644,13 +644,8 @@ mod tests {
 
     #[test]
     fn preview_runs_engine_command_on_proxy() {
-        let mut doc = Document::with_background(
-            "p",
-            niveta_doc::Size::new(64, 64),
-            niveta_doc::ColorMode::Rgb,
-            niveta_doc::SampleType::U8,
-            niveta_doc::Color::WHITE,
-        );
+        let mut doc =
+            Document::with_background("p", niveta_doc::Size::new(64, 64), niveta_doc::ColorMode::Rgb, niveta_doc::SampleType::U8, niveta_doc::Color::WHITE);
         let bg = doc.layers[0].id;
         doc.layers[0].surface_mut().unwrap().fill_rect(niveta_geom::Rect::new(0, 0, 32, 64), &[0.0, 0.0, 0.0, 1.0]);
         let out = preview_document(&doc, Some(bg), "filter.blur.gaussianBlur", &json!({"radius": 4.0}), 1).unwrap();
@@ -682,13 +677,8 @@ mod tests {
         egui::Context::default().run_ui(Default::default(), |ui| body(ui, &mut f)).textures_delta.clear();
         assert_eq!(params_of(&f), want, "drawing the dialog keeps its params");
 
-        let mut doc = Document::with_background(
-            "p",
-            niveta_doc::Size::new(32, 32),
-            niveta_doc::ColorMode::Rgb,
-            niveta_doc::SampleType::U16,
-            niveta_doc::Color::WHITE,
-        );
+        let mut doc =
+            Document::with_background("p", niveta_doc::Size::new(32, 32), niveta_doc::ColorMode::Rgb, niveta_doc::SampleType::U16, niveta_doc::Color::WHITE);
         let bg = doc.layers[0].id;
         doc.layers[0].surface_mut().unwrap().fill_rect(niveta_geom::Rect::new(0, 0, 8, 32), &[0.0, 0.0, 0.0, 1.0]);
         for k in [1, 2] {
@@ -704,8 +694,7 @@ mod tests {
     fn preview_stays_inside_the_selection_at_every_proxy_factor() {
         use niveta_doc::SampleType;
         for depth in [SampleType::U8, SampleType::U16, SampleType::F32] {
-            let mut doc =
-                Document::with_background("p", niveta_doc::Size::new(64, 64), niveta_doc::ColorMode::Rgb, depth, niveta_doc::Color::gray(0.5));
+            let mut doc = Document::with_background("p", niveta_doc::Size::new(64, 64), niveta_doc::ColorMode::Rgb, depth, niveta_doc::Color::gray(0.5));
             let bg = doc.layers[0].id;
             let mut sel = niveta_raster::Surface::new(niveta_doc::PixelFormat::GRAY8);
             sel.fill_rect(niveta_geom::Rect::new(0, 0, 32, 64), &[1.0]);

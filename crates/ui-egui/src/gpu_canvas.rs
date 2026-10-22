@@ -342,12 +342,7 @@ impl GpuCanvas {
     /// composite (linear documents, see `niveta_engine::display_color`). Returns `Err` when the
     /// document uses features the GPU compositor doesn't cover yet; the caller then falls back to
     /// the CPU compositor.
-    pub fn composite(
-        &self,
-        doc: &niveta_doc::Document,
-        region: niveta_geom::Rect,
-        encode_srgb: bool,
-    ) -> Result<niveta_gpu::Stats, niveta_gpu::Unsupported> {
+    pub fn composite(&self, doc: &niveta_doc::Document, region: niveta_geom::Rect, encode_srgb: bool) -> Result<niveta_gpu::Stats, niveta_gpu::Unsupported> {
         let (device, queue) = (&self.rs.device, &self.rs.queue);
         let size = [doc.size.width, doc.size.height];
         if size[0] == 0 || size[1] == 0 {

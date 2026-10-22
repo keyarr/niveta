@@ -390,12 +390,8 @@ pub fn optimize(px: &[[f32; 4]], bw: usize, rect: Rect, st: &WebSettings, icc: O
             let layout = if alpha { niveta_codecs::ChannelLayout::Rgba } else { niveta_codecs::ChannelLayout::Rgb };
             let meta = niveta_codecs::Metadata { dpi: Some((dpi, dpi)), xmp: xmp.map(str::to_string), ..Default::default() };
             let img = niveta_codecs::Image::from_u8(ww, hh, layout, data).map_err(e)?.with_icc(icc.map(<[u8]>::to_vec)).with_meta(meta);
-            let opts = niveta_codecs::EncodeOptions {
-                png_interlaced: st.interlaced,
-                embed_icc: icc.is_some(),
-                embed_metadata: xmp.is_some(),
-                ..Default::default()
-            };
+            let opts =
+                niveta_codecs::EncodeOptions { png_interlaced: st.interlaced, embed_icc: icc.is_some(), embed_metadata: xmp.is_some(), ..Default::default() };
             (niveta_codecs::encode(&img, niveta_codecs::Format::Png, &opts).map_err(e)?, None)
         }
         WebFormat::Jpeg => {
@@ -406,8 +402,8 @@ pub fn optimize(px: &[[f32; 4]], bw: usize, rect: Rect, st: &WebSettings, icc: O
             }
             // Save for Web's 0–100 quality → encoder 1–100.
             let q = st.quality.max(1);
-            let bytes = niveta_codecs::web::encode_jpeg_rgb8(ww, hh, &rgb, q, st.progressive, st.optimized, icc.filter(|_| st.embed_icc), Some(dpi), xmp)
-                .map_err(e)?;
+            let bytes =
+                niveta_codecs::web::encode_jpeg_rgb8(ww, hh, &rgb, q, st.progressive, st.optimized, icc.filter(|_| st.embed_icc), Some(dpi), xmp).map_err(e)?;
             if preview {
                 // The preview shows the compression artefacts.
                 look = match niveta_codecs::decode(&bytes) {

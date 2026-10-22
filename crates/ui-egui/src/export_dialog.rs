@@ -347,13 +347,8 @@ mod tests {
 
     #[test]
     fn export_document_scales_and_flattens() {
-        let doc = Document::with_background(
-            "x",
-            niveta_doc::Size::new(200, 100),
-            niveta_doc::ColorMode::Rgb,
-            niveta_doc::SampleType::U8,
-            niveta_doc::Color::WHITE,
-        );
+        let doc =
+            Document::with_background("x", niveta_doc::Size::new(200, 100), niveta_doc::ColorMode::Rgb, niveta_doc::SampleType::U8, niveta_doc::Color::WHITE);
         let mut f = Map::new();
         f.insert("format".into(), json!("jpg"));
         f.insert("scale".into(), json!(50));

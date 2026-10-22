@@ -414,11 +414,7 @@ impl Ctx<'_> {
                     // The recursion here (and in every later consumer of the tree) is bounded by
                     // the document model's nesting cap; a deeper subtree is not imported.
                     let children = if depth >= niveta_doc::MAX_GROUP_DEPTH {
-                        self.warn(format!(
-                            "group `{}` nests deeper than {} groups; its contents were not imported",
-                            rec.name(),
-                            niveta_doc::MAX_GROUP_DEPTH
-                        ));
+                        self.warn(format!("group `{}` nests deeper than {} groups; its contents were not imported", rec.name(), niveta_doc::MAX_GROUP_DEPTH));
                         Vec::new()
                     } else {
                         self.build(children, depth + 1)
@@ -561,11 +557,9 @@ pub fn psd_to_document_with(file: &PsdFile, ctl: &niveta_raster::Interrupt) -> O
                 }
             }
             id if crate::vector_map::SAVED_PATHS.contains(&id) => match crate::vector_map::path_from_resource(&r.data, h.width, h.height) {
-                Some(path) => doc.paths.push(niveta_doc::NamedPath {
-                    name: String::from_utf8_lossy(&r.name).into_owned(),
-                    path,
-                    psd_raw: Some(Arc::new(r.data.clone())),
-                }),
+                Some(path) => {
+                    doc.paths.push(niveta_doc::NamedPath { name: String::from_utf8_lossy(&r.name).into_owned(), path, psd_raw: Some(Arc::new(r.data.clone())) })
+                }
                 None => doc.metadata.psd_resources.push((id, String::from_utf8_lossy(&r.name).into_owned(), Arc::new(r.data.clone()))),
             },
             crate::vector_map::WORK_PATH => {
@@ -722,8 +716,7 @@ pub fn psd_to_document_with(file: &PsdFile, ctl: &niveta_raster::Interrupt) -> O
             doc.color_table = Some(niveta_doc::ColorTable { colors, transparent: None });
         } else if h.color_mode == PsdMode::Duotone && !file.color_mode_data.is_empty() {
             // The duotone ink block is undocumented: keep it raw; the image shows as its gray plate.
-            doc.duotone =
-                Some(niveta_doc::Duotone { inks: vec![niveta_doc::DuotoneInk::new("Black", [0.0; 3])], psd_raw: Some(file.color_mode_data.clone()) });
+            doc.duotone = Some(niveta_doc::Duotone { inks: vec![niveta_doc::DuotoneInk::new("Black", [0.0; 3])], psd_raw: Some(file.color_mode_data.clone()) });
             cx.warn("duotone inks are not interpreted (shown as grayscale)");
         } else if !file.color_mode_data.is_empty() {
             cx.warn("color mode data is not preserved");

@@ -58,8 +58,7 @@ fn photo_jpeg(w: u32, h: u32) -> Res<Vec<u8>> {
             }
         }
     });
-    let img =
-        niveta_codecs::Image::from_raw(w, h, niveta_codecs::ChannelLayout::Rgb, niveta_codecs::SampleType::U8, px).map_err(|e| e.to_string())?;
+    let img = niveta_codecs::Image::from_raw(w, h, niveta_codecs::ChannelLayout::Rgb, niveta_codecs::SampleType::U8, px).map_err(|e| e.to_string())?;
     niveta_codecs::encode(&img, niveta_codecs::Format::Jpeg, &Default::default()).map_err(|e| e.to_string())
 }
 

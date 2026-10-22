@@ -108,7 +108,8 @@ fn content_aware_fill_huge_area_neither_panics_nor_wraps() {
     // panic, a garbage sampling window in release); the additions saturate now. Saturated to
     // i32::MAX the custom area degenerates to an empty rect off the canvas, so there is nothing
     // outside the selection to sample and the fill refuses rather than painting black.
-    let err = s.execute("edit.contentAwareFill", json!({"sampling": "custom", "area": [1e30, 0.0, 1e30, 10.0], "colorAdaptation": "none"})).unwrap_err().to_string();
+    let err =
+        s.execute("edit.contentAwareFill", json!({"sampling": "custom", "area": [1e30, 0.0, 1e30, 10.0], "colorAdaptation": "none"})).unwrap_err().to_string();
     assert!(err.contains("nothing to sample from"), "{err}");
     // A large but finite area still covers the whole canvas: the fill runs and reports its extent.
     let r = s.execute("edit.contentAwareFill", json!({"sampling": "custom", "area": [-1000, -1000, 2000, 2000], "colorAdaptation": "none"})).unwrap();

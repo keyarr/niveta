@@ -176,10 +176,10 @@ fn cmyk_layered_to_png_warns_conversion() {
 #[test]
 fn effects_are_written_to_psd_and_read_back() {
     let mut d = gen_doc(ColorMode::Rgb, SampleType::U8, Features::PIXELS);
-    d.layers[1].effects.items.push(niveta_doc::Effect::ColorOverlay {
-        common: niveta_doc::FxCommon::new(niveta_color::BlendMode::Normal, 1.0),
-        color: niveta_color::Color::BLACK,
-    });
+    d.layers[1]
+        .effects
+        .items
+        .push(niveta_doc::Effect::ColorOverlay { common: niveta_doc::FxCommon::new(niveta_color::BlendMode::Normal, 1.0), color: niveta_color::Color::BLACK });
     d.layers[1].effects.items.push(niveta_doc::Effect::default_drop_shadow());
     let r = export(&d, "a.psd", &ExportOptions::default()).unwrap();
     assert!(!r.warnings.iter().any(|w| w.contains("effects")), "{:?}", r.warnings);

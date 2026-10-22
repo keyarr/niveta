@@ -733,13 +733,7 @@ fn effect_list(ui: &mut egui::Ui, f: &mut Map<String, Value>, selected: &str, li
                 ui.painter().rect_filled(rect, t.radius_sm, t.hover.gamma_multiply(0.5));
             }
             fx_checkbox(ui.painter(), fx_checkbox_rect(rect), false, &t);
-            ui.painter().text(
-                rect.left_center() + vec2(28.0, 0.0),
-                egui::Align2::LEFT_CENTER,
-                tl!(label),
-                egui::FontId::proportional(12.5),
-                t.text_faint,
-            );
+            ui.painter().text(rect.left_center() + vec2(28.0, 0.0), egui::Align2::LEFT_CENTER, tl!(label), egui::FontId::proportional(12.5), t.text_faint);
             if resp.clicked() {
                 add_instance(f, kind);
             }
@@ -945,8 +939,7 @@ fn params_page(
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(tl!(&label)).color(t.text_dim));
                     let mut cur = disp.get(key).and_then(Value::as_str).unwrap_or("Normal").to_string();
-                    let opts: Vec<(String, &str)> =
-                        niveta_color::BlendMode::LAYER_MODES.iter().map(|m| (m.label().to_string(), m.label())).collect();
+                    let opts: Vec<(String, &str)> = niveta_color::BlendMode::LAYER_MODES.iter().map(|m| (m.label().to_string(), m.label())).collect();
                     if widgets::dropdown(ui, &format!("fx-blend-{sel_kind}"), &mut cur, &opts, 150.0) {
                         let value = json!(cur);
                         disp[key] = value.clone();
@@ -1661,9 +1654,7 @@ mod tests {
         let mut app = NivetaApp::new(niveta_engine::Session::new(), Default::default());
         let mut layer = niveta_doc::Layer::new("L", niveta_doc::LayerContent::Adjustment(niveta_doc::Adjustment::Invert));
         layer.advanced.knockout = niveta_doc::Knockout::Deep;
-        for mode in
-            [niveta_color::ColorMode::Rgb, niveta_color::ColorMode::Cmyk, niveta_color::ColorMode::Lab, niveta_color::ColorMode::Grayscale]
-        {
+        for mode in [niveta_color::ColorMode::Rgb, niveta_color::ColorMode::Cmyk, niveta_color::ColorMode::Lab, niveta_color::ColorMode::Grayscale] {
             let mut f = initial_fields(&layer, Some(BLENDING), 120.0);
             set_blending_fields(&mut f, &layer, mode);
             let mut out = ctx.run_ui(Default::default(), |ui| body(&mut app, ui, &mut f));

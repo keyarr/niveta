@@ -331,8 +331,7 @@ fn recent_photos(ctx: &egui::Context, permitted: bool) -> (Vec<Photo>, bool) {
             photos
                 .iter()
                 .map(|p| {
-                    let (secs, nanos) =
-                        p.modified.duration_since(SystemTime::UNIX_EPOCH).ok().map(|d| (d.as_secs(), d.subsec_nanos())).unwrap_or((0, 0));
+                    let (secs, nanos) = p.modified.duration_since(SystemTime::UNIX_EPOCH).ok().map(|d| (d.as_secs(), d.subsec_nanos())).unwrap_or((0, 0));
                     (p.path.clone(), secs, nanos, 0)
                 })
                 .collect()
@@ -413,12 +412,10 @@ impl ScanSlot {
 fn spawn_scan() -> Option<ScanSlot> {
     let slot = ScanSlot::default();
     let out = slot.done.clone();
-    let job = std::thread::Builder::new()
-        .name("home-photo-scan".into())
-        .spawn(move || {
-            let photos = std::panic::catch_unwind(std::panic::AssertUnwindSafe(scan_photos)).unwrap_or_default();
-            *out.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(photos);
-        });
+    let job = std::thread::Builder::new().name("home-photo-scan".into()).spawn(move || {
+        let photos = std::panic::catch_unwind(std::panic::AssertUnwindSafe(scan_photos)).unwrap_or_default();
+        *out.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(photos);
+    });
     if job.is_err() {
         return None;
     }
@@ -1072,10 +1069,7 @@ mod tests {
         NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
         h.ctx.data_mut(|d| {
             d.insert_temp(egui::Id::new("home-recent-photos-perm"), true);
-            d.insert_temp(
-                egui::Id::new("home-recent-photos"),
-                (0.0f64, vec![("/no/such/photo.png".to_string(), 0u64, 0u32, 0u64)], false),
-            );
+            d.insert_temp(egui::Id::new("home-recent-photos"), (0.0f64, vec![("/no/such/photo.png".to_string(), 0u64, 0u32, 0u64)], false));
         });
         h.run_steps(3);
         assert!(h.query_all_by_label_contains("See all").next().is_some(), "the grid has its See all");

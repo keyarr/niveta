@@ -608,9 +608,7 @@ impl Ex {
             let item = match (sm.stack_mode, self.source_composite(&src.uuid)) {
                 (None, Some((img, img_bounds))) => {
                     let unfiltered = match &sm.perspective {
-                        Some(p) => {
-                            niveta_algo::warp::place_source_projective(&img, img_bounds, &niveta_algo::transform::Homography(*p), sm.warp.as_ref())
-                        }
+                        Some(p) => niveta_algo::warp::place_source_projective(&img, img_bounds, &niveta_algo::transform::Homography(*p), sm.warp.as_ref()),
                         None => niveta_algo::warp::place_source(&img, img_bounds, &sm.transform, sm.warp.as_ref()),
                     };
                     crate::smart_map::feid_item(&placed, &unfiltered, sm.filter_mask.as_ref(), bounds, self.fmt)
@@ -1393,8 +1391,7 @@ mod tests {
     fn photo_filter_psd_is_four_byte_aligned_and_round_trips() {
         let color = [60000u16, 30000, 0].map(|x| x as f32 / 65535.0);
         let adjustment = niveta_doc::Adjustment::PhotoFilter { color, density: 0.14, preserve_luminosity: true };
-        let mut doc =
-            Document::with_background("Photo Filter PSD", niveta_geom::Size::new(32, 24), ColorMode::Rgb, SampleType::U8, niveta_doc::Color::WHITE);
+        let mut doc = Document::with_background("Photo Filter PSD", niveta_geom::Size::new(32, 24), ColorMode::Rgb, SampleType::U8, niveta_doc::Color::WHITE);
         let mut layer = Layer::new("Warming Filter", LayerContent::Adjustment(adjustment.clone()));
         doc.layers.push(layer.clone());
 

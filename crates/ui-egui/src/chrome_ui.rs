@@ -318,15 +318,12 @@ mod tests {
         assert!(app.session.active().unwrap().is_dirty());
         let saved: Rc<RefCell<Vec<(u64, u64)>>> = Rc::default();
         let log = saved.clone();
-        app.services.autosave_blocking =
-            Some(Box::new(move |doc: &std::sync::Arc<niveta_doc::Document>, rev: u64, _path: Option<&str>| {
-                log.borrow_mut().push((doc.id.0, rev));
-                Ok(())
-            }));
+        app.services.autosave_blocking = Some(Box::new(move |doc: &std::sync::Arc<niveta_doc::Document>, rev: u64, _path: Option<&str>| {
+            log.borrow_mut().push((doc.id.0, rev));
+            Ok(())
+        }));
         assert!(app.services.file_dialog.is_none());
-        let mut h = Harness::builder()
-            .with_size(egui::vec2(900.0, 40.0))
-            .build_ui_state(|ui, app| home_button(app, ui), app);
+        let mut h = Harness::builder().with_size(egui::vec2(900.0, 40.0)).build_ui_state(|ui, app| home_button(app, ui), app);
         h.run_steps(2);
         // The icon button paints no accesskit node, so click its box (the only
         // widget here) by position instead of by label.

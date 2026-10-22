@@ -258,10 +258,7 @@ impl Default for ToolState {
             foreground: [0.0, 0.0, 0.0, 1.0],
             background: [1.0, 1.0, 1.0, 1.0],
             // Photoshop's Brush tool starts at 10 % Smoothing.
-            brush: niveta_paint::BrushSettings {
-                smoothing: niveta_paint::brush::Smoothing { amount: 0.1, ..Default::default() },
-                ..Default::default()
-            },
+            brush: niveta_paint::BrushSettings { smoothing: niveta_paint::brush::Smoothing { amount: 0.1, ..Default::default() }, ..Default::default() },
             presets: niveta_paint::presets::builtin(),
             presets_rev: 0,
             mixer: Default::default(),

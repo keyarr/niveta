@@ -305,12 +305,7 @@ fn commit_open_raw(app: &mut NivetaApp, params: &CameraRaw, raw: &RawOpen) -> Re
 
 /// Swap the default-developed document `doc_id` for the re-developed one, at the same tab
 /// position and with the same path. Returns `{document, previous, warnings, wb}`.
-fn replace_raw_document(
-    s: &mut niveta_engine::Session,
-    doc_id: niveta_doc::DocId,
-    r: niveta_io::ImportResult,
-    wb: bool,
-) -> niveta_engine::Result<Value> {
+fn replace_raw_document(s: &mut niveta_engine::Session, doc_id: niveta_doc::DocId, r: niveta_io::ImportResult, wb: bool) -> niveta_engine::Result<Value> {
     let index =
         s.documents().iter().position(|st| st.doc.id == doc_id).ok_or_else(|| niveta_engine::EngineError::Other("the raw document was closed".into()))?;
     let path = s.documents().get(index).and_then(|st| st.path.clone());

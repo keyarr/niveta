@@ -580,11 +580,10 @@ mod tests {
         make_dirty(&mut app, 0);
         let saved: Rc<RefCell<Vec<(u64, u64)>>> = Rc::default();
         let log = saved.clone();
-        app.services.autosave_blocking =
-            Some(Box::new(move |doc: &std::sync::Arc<niveta_doc::Document>, rev: u64, _path: Option<&str>| {
-                log.borrow_mut().push((doc.id.0, rev));
-                Ok(())
-            }));
+        app.services.autosave_blocking = Some(Box::new(move |doc: &std::sync::Arc<niveta_doc::Document>, rev: u64, _path: Option<&str>| {
+            log.borrow_mut().push((doc.id.0, rev));
+            Ok(())
+        }));
         assert!(app.services.file_dialog.is_none());
         assert!(!press_window_close(&mut app));
         assert!(app.allow_close);
@@ -612,11 +611,10 @@ mod tests {
             make_dirty(&mut app, 0);
             let saved: Rc<RefCell<Vec<(u64, u64)>>> = Rc::default();
             let log = saved.clone();
-            app.services.autosave_blocking =
-                Some(Box::new(move |doc: &std::sync::Arc<niveta_doc::Document>, rev: u64, _path: Option<&str>| {
-                    log.borrow_mut().push((doc.id.0, rev));
-                    Ok(())
-                }));
+            app.services.autosave_blocking = Some(Box::new(move |doc: &std::sync::Arc<niveta_doc::Document>, rev: u64, _path: Option<&str>| {
+                log.borrow_mut().push((doc.id.0, rev));
+                Ok(())
+            }));
             if picker {
                 app.services.file_dialog = Some(Box::new(|_, _, _| {}));
             }

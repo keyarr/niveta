@@ -12,8 +12,7 @@ pub const APP_PAGE: &str = "https://getartcraft.com/apps/photocraft";
 pub const GITHUB: &str = "https://github.com/storytold/photocraft";
 pub const ISSUES: &str = "https://github.com/storytold/photocraft/issues";
 
-pub const COMMANDS: &[(&str, &str)] =
-    &[("help.discord", DISCORD), ("help.website", APP_PAGE), ("help.github", GITHUB), ("help.reportIssue", ISSUES)];
+pub const COMMANDS: &[(&str, &str)] = &[("help.discord", DISCORD), ("help.website", APP_PAGE), ("help.github", GITHUB), ("help.reportIssue", ISSUES)];
 
 pub fn url_for(id: &str) -> Option<&'static str> {
     COMMANDS.iter().find(|c| c.0 == id).map(|c| c.1)

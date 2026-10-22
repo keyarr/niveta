@@ -389,34 +389,32 @@ pub fn window(app: &mut NivetaApp, ctx: &egui::Context) {
         // covering the whole screen (the body scrolls inside the cap).
         let w = (ctx.content_rect().width() - 32.0).clamp(280.0, WIDTH);
         let h = (ctx.content_rect().height() * 0.55).clamp(280.0, 460.0);
-        egui::Modal::new(egui::Id::new("brush-settings"))
-            .backdrop_color(t.scrim)
-            .show(ctx, |ui| {
-                frame.show(ui, |ui| {
-                    // The frame's margins add to what egui measures: request the body width, not
-                    // the sheet's, or the outer sheet ends up 20 pt wider than the `- 32` gutters
-                    // intended above.
-                    let body_w = w - frame.inner_margin.sum().x;
-                    ui.set_min_width(body_w);
-                    ui.set_max_width(body_w);
-                    ui.set_min_height(h);
-                    ui.set_max_height(h);
-                    let close = sheet_header(app, ui) || ui.input(|i| i.key_pressed(egui::Key::Escape));
-                    if close {
-                        open = false;
-                        return;
+        egui::Modal::new(egui::Id::new("brush-settings")).backdrop_color(t.scrim).show(ctx, |ui| {
+            frame.show(ui, |ui| {
+                // The frame's margins add to what egui measures: request the body width, not
+                // the sheet's, or the outer sheet ends up 20 pt wider than the `- 32` gutters
+                // intended above.
+                let body_w = w - frame.inner_margin.sum().x;
+                ui.set_min_width(body_w);
+                ui.set_max_width(body_w);
+                ui.set_min_height(h);
+                ui.set_max_height(h);
+                let close = sheet_header(app, ui) || ui.input(|i| i.key_pressed(egui::Key::Escape));
+                if close {
+                    open = false;
+                    return;
+                }
+                // The body scrolls against the sheet's cap, so the header stays put.
+                let room = (ui.available_height() - 4.0).max(80.0);
+                egui::ScrollArea::vertical().id_salt("brush-settings-sheet").max_height(room).auto_shrink([false, false]).show(ui, |ui| {
+                    if app.ui.brush_tab == 1 {
+                        crate::brushes_tab::show(app, ui);
+                    } else {
+                        settings_tab(app, ui);
                     }
-                    // The body scrolls against the sheet's cap, so the header stays put.
-                    let room = (ui.available_height() - 4.0).max(80.0);
-                    egui::ScrollArea::vertical().id_salt("brush-settings-sheet").max_height(room).auto_shrink([false, false]).show(ui, |ui| {
-                        if app.ui.brush_tab == 1 {
-                            crate::brushes_tab::show(app, ui);
-                        } else {
-                            settings_tab(app, ui);
-                        }
-                    });
                 });
             });
+        });
         if !open {
             app.ui.panels.brush_settings = false;
         }

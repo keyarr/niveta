@@ -255,9 +255,7 @@ fn main() {
         } else {
             (img, w, h)
         };
-        let image =
-            niveta_codecs::Image::from_raw((w * 3) as u32, h as u32, niveta_codecs::ChannelLayout::Rgba, niveta_codecs::SampleType::U8, img)
-                .unwrap();
+        let image = niveta_codecs::Image::from_raw((w * 3) as u32, h as u32, niveta_codecs::ChannelLayout::Rgba, niveta_codecs::SampleType::U8, img).unwrap();
         std::fs::write(&out, niveta_codecs::encode(&image, niveta_codecs::Format::Png, &Default::default()).unwrap()).unwrap();
         println!("wrote {out}");
         return;
@@ -275,10 +273,7 @@ fn main() {
         wr(format!("{out}_ps.f32"), &merged);
         let mut meta = format!("{} {}\n", doc.size.width, doc.size.height);
         for (i, l) in doc.layers.iter().enumerate() {
-            let b = niveta_compose::surface_to_buffer(
-                l.surface().unwrap_or(&niveta_raster::Surface::new(niveta_color::PixelFormat::RGBA8)),
-                doc.bounds(),
-            );
+            let b = niveta_compose::surface_to_buffer(l.surface().unwrap_or(&niveta_raster::Surface::new(niveta_color::PixelFormat::RGBA8)), doc.bounds());
             wr(format!("{out}_L{i}.f32"), &b.px);
             meta += &format!("{i} {}\n", l.name);
         }

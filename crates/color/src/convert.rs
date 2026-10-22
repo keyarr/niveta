@@ -254,13 +254,8 @@ mod tests {
     #[test]
     fn document_cmyk_space_scope() {
         // A synthetic uncoated-like profile (heavier dot gain than the built-in coated one).
-        let params = niveta_cms::synth::CmykParams {
-            description: "Test Uncoated".into(),
-            tvi: [0.26, 0.26, 0.26, 0.3],
-            grid_a2b: 5,
-            grid_b2a: 9,
-            ..Default::default()
-        };
+        let params =
+            niveta_cms::synth::CmykParams { description: "Test Uncoated".into(), tvi: [0.26, 0.26, 0.26, 0.3], grid_a2b: 5, grid_b2a: 9, ..Default::default() };
         let p = niveta_cms::synth::cmyk_profile(&params);
         let bytes = p.to_bytes();
         let space = CmykSpace::for_profile(Some(&bytes)).expect("a CMYK profile other than the default");

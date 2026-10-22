@@ -9,8 +9,8 @@ use egui::vec2;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
-use crate::theme::Tokens;
 use crate::NivetaApp;
+use crate::theme::Tokens;
 
 /// Transient export-sheet state (never persisted).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -323,8 +323,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let mut a = app();
         a.run("file.new", json!({"width": 16, "height": 16})).unwrap();
-        a.services.export =
-            Some(Box::new(|_: &niveta_doc::Document, _: &str, _: &crate::ExportSettings| Ok((b"fake-png".to_vec(), Vec::new()))));
+        a.services.export = Some(Box::new(|_: &niveta_doc::Document, _: &str, _: &crate::ExportSettings| Ok((b"fake-png".to_vec(), Vec::new()))));
         a.services.write = Some(Box::new(|path: &str, bytes: &[u8]| std::fs::write(path, bytes).map_err(|e| e.to_string())));
         a.services.export_base_dir = Some(dir.to_string_lossy().into_owned());
         open(&mut a);

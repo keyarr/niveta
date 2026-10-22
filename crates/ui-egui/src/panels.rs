@@ -612,10 +612,7 @@ mod title_tests {
     }
 
     fn open_named(app: &mut crate::NivetaApp, name: &str) {
-        app.session.add_document(
-            niveta_doc::Document::new(name, niveta_doc::Size::new(4, 4), niveta_doc::ColorMode::Rgb, niveta_doc::SampleType::U8),
-            None,
-        );
+        app.session.add_document(niveta_doc::Document::new(name, niveta_doc::Size::new(4, 4), niveta_doc::ColorMode::Rgb, niveta_doc::SampleType::U8), None);
     }
 
     #[test]
@@ -1686,49 +1683,49 @@ fn layers(app: &mut NivetaApp, ui: &mut egui::Ui) {
         // Docks zero the item spacing: keep the Opacity and Fill fields apart (#155).
         ui.add_space((theme::ROW_GAP - ui.spacing().item_spacing.y).max(0.0));
         if !mobile || app.ui.show_layer_filters {
-        ui.horizontal(|ui| {
-            let lock_label = if t.pro { tl!("Lock:") } else { tl!("Lock") };
-            let fill_label = if t.pro { tl!("Fill:") } else { tl!("Fill") };
-            // In a narrow panel with long translated labels, drop the "Lock:" text (the icons keep
-            // their tooltips) rather than let the Fill label run over the lock icons.
-            let gap = ui.spacing().item_spacing.x;
-            let icons_w = if t.pro { 5.0 * 20.0 } else { 22.0 + gap };
-            let fits = body_text_width(ui, lock_label) + icons_w + body_text_width(ui, fill_label) + LAYER_PCT_W + 2.0 * gap <= ui.available_width();
-            if fits {
-                label(ui, lock_label);
-            }
-            if t.pro {
-                ui.spacing_mut().item_spacing.x = 0.0;
-                let lk = l.locks;
-                for (key, icon, tip, on) in [
-                    ("transparency", "grid-3x3", tl!("Lock transparent pixels"), lk.transparency),
-                    ("pixels", "brush", tl!("Lock image pixels"), lk.pixels),
-                    ("position", "move", tl!("Lock position"), lk.position),
-                    ("artboard", "scan", tl!("Prevent auto-nesting in and out of Artboards and Frames"), lk.artboard),
-                    ("all", "lock", tl!("Lock all"), lk.all),
-                ] {
-                    if icons::button(ui, icon, 20.0, on, tip).clicked() {
-                        actions.push(("layer.setProps".into(), json!({"layer": l.id.0, "locks": { key: !on }})));
+            ui.horizontal(|ui| {
+                let lock_label = if t.pro { tl!("Lock:") } else { tl!("Lock") };
+                let fill_label = if t.pro { tl!("Fill:") } else { tl!("Fill") };
+                // In a narrow panel with long translated labels, drop the "Lock:" text (the icons keep
+                // their tooltips) rather than let the Fill label run over the lock icons.
+                let gap = ui.spacing().item_spacing.x;
+                let icons_w = if t.pro { 5.0 * 20.0 } else { 22.0 + gap };
+                let fits = body_text_width(ui, lock_label) + icons_w + body_text_width(ui, fill_label) + LAYER_PCT_W + 2.0 * gap <= ui.available_width();
+                if fits {
+                    label(ui, lock_label);
+                }
+                if t.pro {
+                    ui.spacing_mut().item_spacing.x = 0.0;
+                    let lk = l.locks;
+                    for (key, icon, tip, on) in [
+                        ("transparency", "grid-3x3", tl!("Lock transparent pixels"), lk.transparency),
+                        ("pixels", "brush", tl!("Lock image pixels"), lk.pixels),
+                        ("position", "move", tl!("Lock position"), lk.position),
+                        ("artboard", "scan", tl!("Prevent auto-nesting in and out of Artboards and Frames"), lk.artboard),
+                        ("all", "lock", tl!("Lock all"), lk.all),
+                    ] {
+                        if icons::button(ui, icon, 20.0, on, tip).clicked() {
+                            actions.push(("layer.setProps".into(), json!({"layer": l.id.0, "locks": { key: !on }})));
+                        }
                     }
                 }
-            }
-            if !t.pro {
-                let locked = l.locks.transparency || l.locks.position || l.locks.all;
-                if icons::button(ui, if locked { "lock" } else { "lock-open" }, 22.0, locked, tl!("Lock layer")).clicked() {
-                    actions.push(simple_lock_toggle(bg, l));
-                }
-            }
-            ui.add_enabled_ui(!bg, |ui| {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let mut f = l.fill_opacity * 100.0;
-                    let r = widgets::popup_value_field(ui, fill_label, &mut f, 0.0..=100.0, "%", LAYER_PCT_W);
-                    if r.changed {
-                        actions.push(pct_action(l, "fill", f, r.drag));
+                if !t.pro {
+                    let locked = l.locks.transparency || l.locks.position || l.locks.all;
+                    if icons::button(ui, if locked { "lock" } else { "lock-open" }, 22.0, locked, tl!("Lock layer")).clicked() {
+                        actions.push(simple_lock_toggle(bg, l));
                     }
-                    label(ui, fill_label);
-                })
+                }
+                ui.add_enabled_ui(!bg, |ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let mut f = l.fill_opacity * 100.0;
+                        let r = widgets::popup_value_field(ui, fill_label, &mut f, 0.0..=100.0, "%", LAYER_PCT_W);
+                        if r.changed {
+                            actions.push(pct_action(l, "fill", f, r.drag));
+                        }
+                        label(ui, fill_label);
+                    })
+                });
             });
-        });
         }
         ui.add_space(2.0);
     }
@@ -1824,144 +1821,149 @@ fn layers(app: &mut NivetaApp, ui: &mut egui::Ui) {
         let gap = 2.0;
         let cell_w = ((avail - 6.0 * gap) / 7.0).clamp(40.0, 52.0);
         let cell_size = vec2(cell_w, 48.0);
-        egui::ScrollArea::horizontal().id_salt("layer-footer-scroll").auto_shrink([true, true]).scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden).show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing.x = gap;
-                // Photoshop's footer starts with Link Layers (enabled with two or more layers selected).
-                let can_link = app.session.is_enabled("layer.linkLayers");
-                if ui.add_enabled_ui(can_link, |ui| layer_footer_cell(ui, "link-2", tl!("Link"), tl!("Link layers"), cell_size)).inner.clicked() {
-                    actions.push(("layer.linkLayers".into(), json!({})));
-                }
-                let fx = layer_footer_fx_cell(ui, tl!("FX"), tl!("Add a layer style"), cell_size);
-                egui::Popup::menu(&fx).open_memory(footer_menu_right_click(&fx)).show(|ui| {
-                    ui.set_min_width(180.0);
-                    if ui.button(tl!("Blending Options…")).clicked() {
-                        crate::layer_style::open(app, None);
-                        ui.close();
+        egui::ScrollArea::horizontal()
+            .id_salt("layer-footer-scroll")
+            .auto_shrink([true, true])
+            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = gap;
+                    // Photoshop's footer starts with Link Layers (enabled with two or more layers selected).
+                    let can_link = app.session.is_enabled("layer.linkLayers");
+                    if ui.add_enabled_ui(can_link, |ui| layer_footer_cell(ui, "link-2", tl!("Link"), tl!("Link layers"), cell_size)).inner.clicked() {
+                        actions.push(("layer.linkLayers".into(), json!({})));
                     }
-                    ui.separator();
-                    for &(kind, label) in crate::layer_style::KINDS {
-                        if ui.button(format!("{}…", tl!(label))).clicked() {
-                            crate::layer_style::open(app, Some(kind));
+                    let fx = layer_footer_fx_cell(ui, tl!("FX"), tl!("Add a layer style"), cell_size);
+                    egui::Popup::menu(&fx).open_memory(footer_menu_right_click(&fx)).show(|ui| {
+                        ui.set_min_width(180.0);
+                        if ui.button(tl!("Blending Options…")).clicked() {
+                            crate::layer_style::open(app, None);
                             ui.close();
                         }
+                        ui.separator();
+                        for &(kind, label) in crate::layer_style::KINDS {
+                            if ui.button(format!("{}…", tl!(label))).clicked() {
+                                crate::layer_style::open(app, Some(kind));
+                                ui.close();
+                            }
+                        }
+                    });
+                    let mask_tip = crate::i18n::fmt(tl!("Add a mask  (from the selection; {key} inverts)"), &[("key", &crate::shortcuts::pretty("Alt"))]);
+                    if layer_footer_cell(ui, "layer-mask", tl!("Mask"), &mask_tip, cell_size).clicked() {
+                        let alt = ui.input(|i| i.modifiers.alt);
+                        actions.push((crate::layer_menu_ui::add_mask_command(doc.selection.is_some(), alt).into(), json!({})));
                     }
-                });
-                let mask_tip = crate::i18n::fmt(tl!("Add a mask  (from the selection; {key} inverts)"), &[("key", &crate::shortcuts::pretty("Alt"))]);
-                if layer_footer_cell(ui, "layer-mask", tl!("Mask"), &mask_tip, cell_size).clicked() {
-                    let alt = ui.input(|i| i.modifiers.alt);
-                    actions.push((crate::layer_menu_ui::add_mask_command(doc.selection.is_some(), alt).into(), json!({})));
-                }
-                let adj = layer_footer_menu_cell(ui, "adjustment-layer", tl!("Adjust"), tl!("Create new fill or adjustment layer"), cell_size);
-                egui::Popup::menu(&adj).open_memory(footer_menu_right_click(&adj)).show(|ui| {
-                    ui.set_min_width(190.0);
-                    for c in niveta_engine::command_specs().iter().filter(|c| c.id.starts_with("layer.newAdjustmentLayer.")) {
-                        if ui.button(tl!(c.label).trim_end_matches('…')).clicked() {
-                            actions.push((c.id.into(), json!({})));
+                    let adj = layer_footer_menu_cell(ui, "adjustment-layer", tl!("Adjust"), tl!("Create new fill or adjustment layer"), cell_size);
+                    egui::Popup::menu(&adj).open_memory(footer_menu_right_click(&adj)).show(|ui| {
+                        ui.set_min_width(190.0);
+                        for c in niveta_engine::command_specs().iter().filter(|c| c.id.starts_with("layer.newAdjustmentLayer.")) {
+                            if ui.button(tl!(c.label).trim_end_matches('…')).clicked() {
+                                actions.push((c.id.into(), json!({})));
+                                ui.close();
+                            }
+                        }
+                        ui.separator();
+                        if ui.button(tl!("Solid Color…")).clicked() {
+                            actions.push(("layer.newFillLayer.solidColor".into(), json!({})));
                             ui.close();
                         }
+                        if ui.button(tl!("Gradient…")).clicked() {
+                            actions.push(("layer.newFillLayer.gradient".into(), json!({})));
+                            ui.close();
+                        }
+                    });
+                    let group = layer_footer_cell(ui, "folder", tl!("Group"), tl!("Create a new group"), cell_size);
+                    if group.clicked() {
+                        actions.push(("layer.new.group".into(), json!({})));
                     }
-                    ui.separator();
-                    if ui.button(tl!("Solid Color…")).clicked() {
-                        actions.push(("layer.newFillLayer.solidColor".into(), json!({})));
-                        ui.close();
+                    actions.extend(footer_drop(ui, &group, footer_drag, "layer.groupLayers"));
+                    let new_layer =
+                        layer_footer_cell(ui, "square-plus", tl!("New"), &crate::shortcuts::tip_label(app, "Create a new layer", "layer.new.layer"), cell_size);
+                    if new_layer.clicked() {
+                        actions.push(("layer.new.layer".into(), json!({})));
                     }
-                    if ui.button(tl!("Gradient…")).clicked() {
-                        actions.push(("layer.newFillLayer.gradient".into(), json!({})));
-                        ui.close();
+                    actions.extend(footer_drop(ui, &new_layer, footer_drag, "layer.duplicate"));
+                    let trash = layer_footer_cell(ui, "trash", tl!("Delete"), tl!("Delete layer"), cell_size);
+                    if trash.clicked() {
+                        actions.push(("layer.delete".into(), json!({})));
                     }
+                    actions.extend(footer_drop(ui, &trash, footer_drag, "layer.delete"));
+                    ui.add_space(4.0);
                 });
-                let group = layer_footer_cell(ui, "folder", tl!("Group"), tl!("Create a new group"), cell_size);
-                if group.clicked() {
-                    actions.push(("layer.new.group".into(), json!({})));
-                }
-                actions.extend(footer_drop(ui, &group, footer_drag, "layer.groupLayers"));
-                let new_layer = layer_footer_cell(ui, "square-plus", tl!("New"), &crate::shortcuts::tip_label(app, "Create a new layer", "layer.new.layer"), cell_size);
-                if new_layer.clicked() {
-                    actions.push(("layer.new.layer".into(), json!({})));
-                }
-                actions.extend(footer_drop(ui, &new_layer, footer_drag, "layer.duplicate"));
-                let trash = layer_footer_cell(ui, "trash", tl!("Delete"), tl!("Delete layer"), cell_size);
-                if trash.clicked() {
-                    actions.push(("layer.delete".into(), json!({})));
-                }
-                actions.extend(footer_drop(ui, &trash, footer_drag, "layer.delete"));
-                ui.add_space(4.0);
             });
-        });
         // Gap + divider before the app's bottom nav, so a footer tap never hits it.
         ui.add_space(10.0);
         widgets::hairline(ui);
         ui.add_space(4.0);
     } else {
-    widgets::panel_footer(ui, |ui| {
-        let trash = icons::button(ui, "trash", 26.0, false, tl!("Delete layer"));
-        if trash.clicked() {
-            actions.push(("layer.delete".into(), json!({})));
-        }
-        actions.extend(footer_drop(ui, &trash, footer_drag, "layer.delete"));
-        let new_layer = icons::button(ui, "square-plus", 26.0, false, &crate::shortcuts::tip_label(app, "Create a new layer", "layer.new.layer"));
-        if new_layer.clicked() {
-            actions.push(("layer.new.layer".into(), json!({})));
-        }
-        actions.extend(footer_drop(ui, &new_layer, footer_drag, "layer.duplicate"));
-        let group = icons::button(ui, "folder", 26.0, false, tl!("Create a new group"));
-        if group.clicked() {
-            actions.push(("layer.new.group".into(), json!({})));
-        }
-        actions.extend(footer_drop(ui, &group, footer_drag, "layer.groupLayers"));
-        let adj = footer_menu_button(ui, "adjustment-layer", 26.0, tl!("Create new fill or adjustment layer"));
-        egui::Popup::menu(&adj).open_memory(footer_menu_right_click(&adj)).show(|ui| {
-            ui.set_min_width(190.0);
-            for c in niveta_engine::command_specs().iter().filter(|c| c.id.starts_with("layer.newAdjustmentLayer.")) {
-                if ui.button(tl!(c.label).trim_end_matches('…')).clicked() {
-                    actions.push((c.id.into(), json!({})));
+        widgets::panel_footer(ui, |ui| {
+            let trash = icons::button(ui, "trash", 26.0, false, tl!("Delete layer"));
+            if trash.clicked() {
+                actions.push(("layer.delete".into(), json!({})));
+            }
+            actions.extend(footer_drop(ui, &trash, footer_drag, "layer.delete"));
+            let new_layer = icons::button(ui, "square-plus", 26.0, false, &crate::shortcuts::tip_label(app, "Create a new layer", "layer.new.layer"));
+            if new_layer.clicked() {
+                actions.push(("layer.new.layer".into(), json!({})));
+            }
+            actions.extend(footer_drop(ui, &new_layer, footer_drag, "layer.duplicate"));
+            let group = icons::button(ui, "folder", 26.0, false, tl!("Create a new group"));
+            if group.clicked() {
+                actions.push(("layer.new.group".into(), json!({})));
+            }
+            actions.extend(footer_drop(ui, &group, footer_drag, "layer.groupLayers"));
+            let adj = footer_menu_button(ui, "adjustment-layer", 26.0, tl!("Create new fill or adjustment layer"));
+            egui::Popup::menu(&adj).open_memory(footer_menu_right_click(&adj)).show(|ui| {
+                ui.set_min_width(190.0);
+                for c in niveta_engine::command_specs().iter().filter(|c| c.id.starts_with("layer.newAdjustmentLayer.")) {
+                    if ui.button(tl!(c.label).trim_end_matches('…')).clicked() {
+                        actions.push((c.id.into(), json!({})));
+                        ui.close();
+                    }
+                }
+                ui.separator();
+                if ui.button(tl!("Solid Color…")).clicked() {
+                    actions.push(("layer.newFillLayer.solidColor".into(), json!({})));
                     ui.close();
                 }
-            }
-            ui.separator();
-            if ui.button(tl!("Solid Color…")).clicked() {
-                actions.push(("layer.newFillLayer.solidColor".into(), json!({})));
-                ui.close();
-            }
-            if ui.button(tl!("Gradient…")).clicked() {
-                actions.push(("layer.newFillLayer.gradient".into(), json!({})));
-                ui.close();
-            }
-        });
-        if icons::button(
-            ui,
-            "layer-mask",
-            26.0,
-            false,
-            &crate::i18n::fmt(tl!("Add a mask  (from the selection; {key} inverts)"), &[("key", &crate::shortcuts::pretty("Alt"))]),
-        )
-        .clicked()
-        {
-            let alt = ui.input(|i| i.modifiers.alt);
-            actions.push((crate::layer_menu_ui::add_mask_command(doc.selection.is_some(), alt).into(), json!({})));
-        }
-        let fx = fx_button(ui, 26.0, tl!("Add a layer style"));
-        egui::Popup::menu(&fx).open_memory(footer_menu_right_click(&fx)).show(|ui| {
-            ui.set_min_width(180.0);
-            if ui.button(tl!("Blending Options…")).clicked() {
-                crate::layer_style::open(app, None);
-                ui.close();
-            }
-            ui.separator();
-            for &(kind, label) in crate::layer_style::KINDS {
-                if ui.button(format!("{}…", tl!(label))).clicked() {
-                    crate::layer_style::open(app, Some(kind));
+                if ui.button(tl!("Gradient…")).clicked() {
+                    actions.push(("layer.newFillLayer.gradient".into(), json!({})));
                     ui.close();
                 }
+            });
+            if icons::button(
+                ui,
+                "layer-mask",
+                26.0,
+                false,
+                &crate::i18n::fmt(tl!("Add a mask  (from the selection; {key} inverts)"), &[("key", &crate::shortcuts::pretty("Alt"))]),
+            )
+            .clicked()
+            {
+                let alt = ui.input(|i| i.modifiers.alt);
+                actions.push((crate::layer_menu_ui::add_mask_command(doc.selection.is_some(), alt).into(), json!({})));
+            }
+            let fx = fx_button(ui, 26.0, tl!("Add a layer style"));
+            egui::Popup::menu(&fx).open_memory(footer_menu_right_click(&fx)).show(|ui| {
+                ui.set_min_width(180.0);
+                if ui.button(tl!("Blending Options…")).clicked() {
+                    crate::layer_style::open(app, None);
+                    ui.close();
+                }
+                ui.separator();
+                for &(kind, label) in crate::layer_style::KINDS {
+                    if ui.button(format!("{}…", tl!(label))).clicked() {
+                        crate::layer_style::open(app, Some(kind));
+                        ui.close();
+                    }
+                }
+            });
+            // Photoshop's footer starts with Link Layers (enabled with two or more layers selected).
+            let can_link = app.session.is_enabled("layer.linkLayers");
+            if ui.add_enabled_ui(can_link, |ui| icons::button(ui, "link-2", 26.0, false, tl!("Link layers"))).inner.clicked() {
+                actions.push(("layer.linkLayers".into(), json!({})));
             }
         });
-        // Photoshop's footer starts with Link Layers (enabled with two or more layers selected).
-        let can_link = app.session.is_enabled("layer.linkLayers");
-        if ui.add_enabled_ui(can_link, |ui| icons::button(ui, "link-2", 26.0, false, tl!("Link layers"))).inner.clicked() {
-            actions.push(("layer.linkLayers".into(), json!({})));
-        }
-    });
     }
     for (id, p) in actions {
         if id == "ui.maskTarget" {
@@ -3064,15 +3066,7 @@ fn layer_drop_payload(dragged: u64, target: LayerId, position: &str, selected: &
 /// Drag a layer row to reorder: drop above, below, or inside an existing group. With ⌥ held on
 /// release the layers stay put and copies land there instead (Photoshop).
 /// Multi-layer moves are atomic (one undo step), using the engine's stable document order.
-fn layer_drag_and_drop(
-    app: &NivetaApp,
-    ctx: &egui::Context,
-    ui: &egui::Ui,
-    l: &Layer,
-    rect: Rect,
-    resp: &egui::Response,
-    actions: &mut Vec<(String, Value)>,
-) {
+fn layer_drag_and_drop(app: &NivetaApp, ctx: &egui::Context, ui: &egui::Ui, l: &Layer, rect: Rect, resp: &egui::Response, actions: &mut Vec<(String, Value)>) {
     let t = Tokens::get(ctx);
     let key = egui::Id::new("layer-drag");
     if resp.drag_started() {

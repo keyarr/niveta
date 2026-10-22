@@ -474,13 +474,7 @@ pub fn save_all_for_exit(app: &mut NivetaApp) {
     if app.services.autosave_blocking.is_none() {
         return;
     }
-    let jobs: Vec<_> = app
-        .session
-        .documents()
-        .iter()
-        .filter(|d| d.is_dirty())
-        .map(|d| (d.doc.clone(), d.revision, d.path.clone()))
-        .collect();
+    let jobs: Vec<_> = app.session.documents().iter().filter(|d| d.is_dirty()).map(|d| (d.doc.clone(), d.revision, d.path.clone())).collect();
     if jobs.is_empty() {
         return;
     }
@@ -920,15 +914,15 @@ fn prefs_body(ui: &mut egui::Ui, f: &mut Map<String, Value>) {
             .auto_shrink([true, true])
             .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
             .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing.x = 4.0;
-                for (id, title) in SECTIONS {
-                    if crate::widgets::pill_tab(ui, tl!(title), section == *id).clicked() {
-                        section = id.to_string();
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 4.0;
+                    for (id, title) in SECTIONS {
+                        if crate::widgets::pill_tab(ui, tl!(title), section == *id).clicked() {
+                            section = id.to_string();
+                        }
                     }
-                }
+                });
             });
-        });
         ui.add_space(4.0);
         crate::widgets::hairline(ui);
         ui.add_space(4.0);

@@ -60,8 +60,7 @@ pub fn fall_back(app: &mut NivetaApp, fault: &niveta_gpu::Fault) {
 
 /// Help › System Info: version, platform and the graphics state.
 pub fn system_info(app: &NivetaApp) -> Vec<String> {
-    let mut v =
-        vec![format!("Niveta {}", niveta_engine::build_info::long_version()), format!("Platform: {} {}", std::env::consts::OS, std::env::consts::ARCH)];
+    let mut v = vec![format!("Niveta {}", niveta_engine::build_info::long_version()), format!("Platform: {} {}", std::env::consts::OS, std::env::consts::ARCH)];
     v.extend(app.perf.gpu_info.lines());
     v
 }

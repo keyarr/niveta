@@ -8,9 +8,7 @@
 //! bytes (little-endian samples for tiles).
 
 use niveta_color::{BlendMode, Color, ColorMode, PixelFormat, SampleType};
-use niveta_doc::{
-    Adjustment, ClippingPath, Effect, Fill, GlobalLight, Guides, LabelColor, LiveShape, Locks, Path, ShapeStroke, SmartFilter, VectorMask, text,
-};
+use niveta_doc::{Adjustment, ClippingPath, Effect, Fill, GlobalLight, Guides, LabelColor, LiveShape, Locks, Path, ShapeStroke, SmartFilter, VectorMask, text};
 use niveta_geom::{Affine, Size};
 use serde::{Deserialize, Serialize};
 

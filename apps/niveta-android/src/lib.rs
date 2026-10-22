@@ -51,11 +51,7 @@ pub fn set_data_dir(dir: PathBuf) {
 /// Where private files live.
 /// `None` means prefs don't persist and recovery is off (same as web).
 pub fn data_dir() -> Option<PathBuf> {
-    DATA_DIR
-        .get()
-        .cloned()
-        .or_else(|| std::env::var_os("NIVETA_ANDROID_DATA_DIR").map(PathBuf::from))
-        .filter(|p| !p.as_os_str().is_empty())
+    DATA_DIR.get().cloned().or_else(|| std::env::var_os("NIVETA_ANDROID_DATA_DIR").map(PathBuf::from)).filter(|p| !p.as_os_str().is_empty())
 }
 
 /// Queue bytes from SAF (or a host test) for the app to open next frame.
@@ -184,8 +180,7 @@ fn android_services_in(dir: Option<PathBuf>) -> (Services, Inbox) {
         f
     });
     let save_prefs = prefs_file.map(|path| {
-        let f: niveta_ui_egui::SaveTextFn =
-            Box::new(move |text: &str| niveta_format::atomic_write(&path, text.as_bytes()).map_err(|e| e.to_string()));
+        let f: niveta_ui_egui::SaveTextFn = Box::new(move |text: &str| niveta_format::atomic_write(&path, text.as_bytes()).map_err(|e| e.to_string()));
         f
     });
     let mut services = Services {
@@ -247,9 +242,8 @@ fn install_recovery(services: &mut Services, dir: &std::path::Path) {
     let store = Arc::new(Mutex::new(niveta_format::RecoveryStore::new(dir.join("recovery"))));
     {
         let store = store.clone();
-        services.autosave = Some(Box::new(move |doc, rev, path| {
-            store.lock().unwrap_or_else(|e| e.into_inner()).autosave_checked(doc, rev, path.map(str::to_string))
-        }));
+        services.autosave =
+            Some(Box::new(move |doc, rev, path| store.lock().unwrap_or_else(|e| e.into_inner()).autosave_checked(doc, rev, path.map(str::to_string))));
     }
     {
         let store = store.clone();
@@ -281,9 +275,8 @@ fn install_recovery(services: &mut Services, dir: &std::path::Path) {
     }
     {
         let store = store.clone();
-        services.autosave_blocking = Some(Box::new(move |doc, rev, path| {
-            store.lock().unwrap_or_else(|e| e.into_inner()).save_blocking(doc, rev, path.map(str::to_string))
-        }));
+        services.autosave_blocking =
+            Some(Box::new(move |doc, rev, path| store.lock().unwrap_or_else(|e| e.into_inner()).save_blocking(doc, rev, path.map(str::to_string))));
     }
     // The shell may have already named a MediaStore folder (`save_to_gallery`);
     // only a build without that hook probes a filesystem path.
@@ -321,8 +314,7 @@ pub fn new_app() -> (NivetaApp, Inbox) {
 /// falls back to the CPU renderer on init failure or a device fault), `gpu` forces it, `cpu` opts
 /// out. The host dev-loop override wins.
 fn android_wants_gpu(app: &NivetaApp) -> bool {
-    std::env::var_os("NIVETA_ANDROID_GPU").is_some()
-        || app.session.prefs().performance.effective_rendering_mode() != niveta_engine::prefs::RenderingMode::Cpu
+    std::env::var_os("NIVETA_ANDROID_GPU").is_some() || app.session.prefs().performance.effective_rendering_mode() != niveta_engine::prefs::RenderingMode::Cpu
 }
 
 fn maybe_enable_gpu(app: &mut NivetaApp, cc: &eframe::CreationContext) {
@@ -421,9 +413,14 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let (mut services, _) = android_services_in(Some(dir.clone()));
-        for (name, s) in
-            [("autosave", services.autosave.is_some()), ("results", services.autosave_results.is_some()), ("discard", services.discard_autosave.is_some()), ("recover", services.recover.is_some()), ("adopt", services.adopt_autosave.is_some()), ("blocking", services.autosave_blocking.is_some())]
-        {
+        for (name, s) in [
+            ("autosave", services.autosave.is_some()),
+            ("results", services.autosave_results.is_some()),
+            ("discard", services.discard_autosave.is_some()),
+            ("recover", services.recover.is_some()),
+            ("adopt", services.adopt_autosave.is_some()),
+            ("blocking", services.autosave_blocking.is_some()),
+        ] {
             assert!(s, "{name} is wired with a data dir");
         }
         assert!(services.export_base_dir.is_some());

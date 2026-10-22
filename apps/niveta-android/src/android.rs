@@ -191,9 +191,7 @@ pub fn storage_settings() {
 /// extension; returns the visible path. Android 10+ only: the columns used
 /// here (`relative_path`, `is_pending`) arrived with scoped storage.
 pub fn save_to_gallery(name: &str, bytes: &[u8]) -> Result<String, String> {
-    let sdk = jni_call(|env, _| {
-        env.get_static_field(jni::jni_str!("android/os/Build$VERSION"), jni::jni_str!("SDK_INT"), jni::jni_sig!("I"))?.i()
-    });
+    let sdk = jni_call(|env, _| env.get_static_field(jni::jni_str!("android/os/Build$VERSION"), jni::jni_str!("SDK_INT"), jni::jni_sig!("I"))?.i());
     if !sdk.is_some_and(|v| v >= 29) {
         return Err("Gallery export needs Android 10 or newer".into());
     }
@@ -209,15 +207,30 @@ pub fn save_to_gallery(name: &str, bytes: &[u8]) -> Result<String, String> {
 fn media_store_save(env: &mut jni::Env, activity: &jni::objects::JObject, name: &str, bytes: &[u8]) -> jni::errors::Result<String> {
     let resolver = env.call_method(activity, jni::jni_str!("getContentResolver"), jni::jni_sig!("()Landroid/content/ContentResolver;"), &[])?.l()?;
     let text = jni::objects::JString::from_str(env, "content://media/external/images/media")?;
-    let collection = env.call_static_method(jni::jni_str!("android/net/Uri"), jni::jni_str!("parse"), jni::jni_sig!("(Ljava/lang/String;)Landroid/net/Uri;"), &[(&text).into()])?.l()?;
+    let collection = env
+        .call_static_method(
+            jni::jni_str!("android/net/Uri"),
+            jni::jni_str!("parse"),
+            jni::jni_sig!("(Ljava/lang/String;)Landroid/net/Uri;"),
+            &[(&text).into()],
+        )?
+        .l()?;
     let values = media_values(env, &[("_display_name", name), ("mime_type", mime_for(name)), ("relative_path", "DCIM/Niveta")])?;
     put_integer(env, &values, "is_pending", 1)?;
-    let row = env.call_method(&resolver, jni::jni_str!("insert"), jni::jni_sig!("(Landroid/net/Uri;Landroid/content/ContentValues;)Landroid/net/Uri;"), &[(&collection).into(), (&values).into()])?.l()?;
+    let row = env
+        .call_method(
+            &resolver,
+            jni::jni_str!("insert"),
+            jni::jni_sig!("(Landroid/net/Uri;Landroid/content/ContentValues;)Landroid/net/Uri;"),
+            &[(&collection).into(), (&values).into()],
+        )?
+        .l()?;
     if row.is_null() {
         return Err(jni::errors::Error::NullPtr("MediaStore insert returned null"));
     }
 
-    let stream = env.call_method(&resolver, jni::jni_str!("openOutputStream"), jni::jni_sig!("(Landroid/net/Uri;)Ljava/io/OutputStream;"), &[(&row).into()])?.l()?;
+    let stream =
+        env.call_method(&resolver, jni::jni_str!("openOutputStream"), jni::jni_sig!("(Landroid/net/Uri;)Ljava/io/OutputStream;"), &[(&row).into()])?.l()?;
     if stream.is_null() {
         delete_row(env, &resolver, &row);
         return Err(jni::errors::Error::NullPtr("MediaStore openOutputStream returned null"));
@@ -262,7 +275,8 @@ fn media_values<'local>(env: &mut jni::Env<'local>, fields: &[(&str, &str)]) -> 
 
 fn put_integer(env: &mut jni::Env, values: &jni::objects::JObject, key: &str, value: i32) -> jni::errors::Result<()> {
     let key = jni::objects::JString::from_str(env, key)?;
-    let boxed = env.call_static_method(jni::jni_str!("java/lang/Integer"), jni::jni_str!("valueOf"), jni::jni_sig!("(I)Ljava/lang/Integer;"), &[value.into()])?.l()?;
+    let boxed =
+        env.call_static_method(jni::jni_str!("java/lang/Integer"), jni::jni_str!("valueOf"), jni::jni_sig!("(I)Ljava/lang/Integer;"), &[value.into()])?.l()?;
     env.call_method(values, jni::jni_str!("put"), jni::jni_sig!("(Ljava/lang/String;Ljava/lang/Integer;)V"), &[(&key).into(), (&boxed).into()])?;
     Ok(())
 }
@@ -283,7 +297,12 @@ fn write_stream(env: &mut jni::Env, stream: &jni::objects::JObject, bytes: &[u8]
 /// invisible either way.
 fn delete_row(env: &mut jni::Env, resolver: &jni::objects::JObject, row: &jni::objects::JObject) {
     let null = jni::objects::JObject::null();
-    let _ = env.call_method(resolver, jni::jni_str!("delete"), jni::jni_sig!("(Landroid/net/Uri;Ljava/lang/String;[Ljava/lang/String;)I"), &[row.into(), (&null).into(), (&null).into()]);
+    let _ = env.call_method(
+        resolver,
+        jni::jni_str!("delete"),
+        jni::jni_sig!("(Landroid/net/Uri;Ljava/lang/String;[Ljava/lang/String;)I"),
+        &[row.into(), (&null).into(), (&null).into()],
+    );
 }
 
 fn mime_for(name: &str) -> &'static str {

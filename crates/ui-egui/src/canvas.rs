@@ -2471,9 +2471,7 @@ pub fn canvas_view(app: &mut NivetaApp, ui: &mut egui::Ui, idx: usize, rect: Rec
                 tool_event(app, ToolEvent::Down { x: d[0], y: d[1], pressure: app.stylus.pressure() }, press_mods);
             }
         }
-        let held_for = (app.touch_active || response.long_touched())
-            && response.is_pointer_button_down_on()
-            && !response.dragged();
+        let held_for = (app.touch_active || response.long_touched()) && response.is_pointer_button_down_on() && !response.dragged();
         let held_for = held_for.then(|| ui.input(|i| i.pointer.press_start_time().map(|t0| i.time - t0))).flatten();
         if let Some(seconds) = held_for
             && seconds < 0.35
@@ -2492,15 +2490,12 @@ pub fn canvas_view(app: &mut NivetaApp, ui: &mut egui::Ui, idx: usize, rect: Rec
         // reachable on touch via a long-press outside the box.
         let transforming = app.ui.transform.as_ref().is_some_and(|t| t.warp.is_none());
         let press_on_box = transforming
-            && ui
-                .input(|i| i.pointer.press_origin())
-                .or(p_pos)
-                .is_some_and(|p| {
-                    let d = xf.to_doc(p);
-                    app.ui.transform.as_ref().is_some_and(|t| {
-                        !matches!(crate::transform_tool::hit(t, d, crate::transform_tool::handle_tolerance(app)), crate::transform_tool::Hit::Outside)
-                    })
-                });
+            && ui.input(|i| i.pointer.press_origin()).or(p_pos).is_some_and(|p| {
+                let d = xf.to_doc(p);
+                app.ui.transform.as_ref().is_some_and(|t| {
+                    !matches!(crate::transform_tool::hit(t, d, crate::transform_tool::handle_tolerance(app)), crate::transform_tool::Hit::Outside)
+                })
+            });
         // egui's own long-touch also reports `secondary_clicked`: on a handle that is a
         // drag being aimed, not the menu, so only a real mouse right-click opens it anywhere.
         let transform_secondary = (response.secondary_clicked() && !response.long_touched()) || (long_press && !press_on_box);
@@ -2695,10 +2690,7 @@ pub fn canvas_view(app: &mut NivetaApp, ui: &mut egui::Ui, idx: usize, rect: Rec
         // end the grab on the release edge itself. A second Up is a no-op (no gesture).
         if crate::transform_tool::gesture_active(app)
             && ui.input(|i| i.pointer.primary_released())
-            && let Some(p) = response
-                .interact_pointer_pos()
-                .or_else(|| ui.input(|i| i.pointer.latest_pos()))
-                .or_else(|| ui.input(|i| i.pointer.press_origin()))
+            && let Some(p) = response.interact_pointer_pos().or_else(|| ui.input(|i| i.pointer.latest_pos())).or_else(|| ui.input(|i| i.pointer.press_origin()))
         {
             let d = xf.to_doc(p);
             tool_event(app, ToolEvent::Up { x: d[0], y: d[1] }, mods);

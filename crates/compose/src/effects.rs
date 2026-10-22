@@ -1838,15 +1838,8 @@ mod tests {
         sf.fill_rect(Rect::new(0, 2, 4, 4), &[1.0, 1.0, 1.0, 1.0]);
         let pats = [Pattern::new("stripes", sf, 4, 4)];
         let mut t = plain.clone();
-        t.texture = Some(niveta_doc::BevelTexture {
-            name: "stripes".into(),
-            id: String::new(),
-            scale: 1.0,
-            depth: 1.0,
-            invert: false,
-            link: true,
-            phase: (0.0, 0.0),
-        });
+        t.texture =
+            Some(niveta_doc::BevelTexture { name: "stripes".into(), id: String::new(), scale: 1.0, depth: 1.0, invert: false, link: true, phase: (0.0, 0.0) });
         let tex = TextureCtx { rect: Rect::new(0, 0, 40, 40), patterns: &pats, anchor: (0.0, 0.0) };
         let (m, _) = bevel_maps(&shape, &t, &l, &tex, &PreparedPatterns::new(&pats, PREPARED_PATTERN_BYTES));
         let mid: f32 = (16..24).map(|y| m[0].v[y * 40 + 20] + m[1].v[y * 40 + 20]).sum();

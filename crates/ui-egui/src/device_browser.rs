@@ -172,7 +172,8 @@ fn entry_at(l: &Listing, i: usize) -> &Entry {
     if i < l.dirs.len() { &l.dirs[i] } else { &l.files[i - l.dirs.len()] }
 }
 
-fn fingerprint_of(meta: &std::fs::Metadata, size: Option<u64>) -> u64 {    let (secs, nanos) =
+fn fingerprint_of(meta: &std::fs::Metadata, size: Option<u64>) -> u64 {
+    let (secs, nanos) =
         meta.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| (d.as_secs(), d.subsec_nanos())).unwrap_or((0, 0));
     secs.wrapping_mul(31).wrapping_add(u64::from(nanos)).wrapping_mul(31).wrapping_add(size.unwrap_or(0))
 }
@@ -276,11 +277,11 @@ pub fn show(app: &mut NivetaApp, ctx: &egui::Context) {
         // `show_rows` adds the UI's item spacing to the row height, while the
         // grid uses its own gap: net them so rows land exactly on the cells.
         let row_h = CELL_H + GRID_GAP_Y - ui.spacing().item_spacing.y;
-        egui::ScrollArea::vertical()
-            .id_salt("device-browser-list")
-            .auto_shrink([false, false])
-            .max_height(400.0)
-            .show_rows(ui, row_h, total.div_ceil(cols), |ui, row_range| {
+        egui::ScrollArea::vertical().id_salt("device-browser-list").auto_shrink([false, false]).max_height(400.0).show_rows(
+            ui,
+            row_h,
+            total.div_ceil(cols),
+            |ui, row_range| {
                 egui::Grid::new("device-browser-grid").spacing([GRID_GAP_X, GRID_GAP_Y]).show(ui, |ui| {
                     for row in row_range {
                         for c in 0..cols {
@@ -304,7 +305,8 @@ pub fn show(app: &mut NivetaApp, ctx: &egui::Context) {
                         ui.end_row();
                     }
                 });
-            });
+            },
+        );
         if pending {
             ui.ctx().request_repaint();
         }
@@ -335,7 +337,12 @@ enum ThumbKind {
 }
 
 fn thumb_kind(name: &str) -> ThumbKind {
-    if name.rsplit(['/', '\\']).next().and_then(|n| n.rsplit_once('.')).is_some_and(|(base, ext)| !base.is_empty() && ext.eq_ignore_ascii_case(niveta_format::EXTENSION)) {
+    if name
+        .rsplit(['/', '\\'])
+        .next()
+        .and_then(|n| n.rsplit_once('.'))
+        .is_some_and(|(base, ext)| !base.is_empty() && ext.eq_ignore_ascii_case(niveta_format::EXTENSION))
+    {
         ThumbKind::Pcraft
     } else if niveta_codecs::from_extension(name).is_some_and(|f| f.caps().read) {
         ThumbKind::Flat
@@ -383,8 +390,7 @@ fn decode_thumb(path: &Path, name: &str, size: Option<u64>) -> Option<egui::Colo
             if let Some(img) = niveta_codecs::exif_thumbnail(&bytes).filter(|img| img.width().max(img.height()) >= THUMB_SIDE) {
                 return Some(shrink(&img.to_rgba8(), img.width(), img.height()));
             }
-            let limits =
-                niveta_codecs::Limits { max_width: 12_000, max_height: 12_000, max_pixels: 64 * 1024 * 1024, max_alloc: 256 * 1024 * 1024 };
+            let limits = niveta_codecs::Limits { max_width: 12_000, max_height: 12_000, max_pixels: 64 * 1024 * 1024, max_alloc: 256 * 1024 * 1024 };
             let img = niveta_codecs::decode_with(&bytes, &niveta_codecs::DecodeOptions { limits, keep_orientation: false }).ok()?;
             Some(shrink(&img.to_rgba8(), img.width(), img.height()))
         }
@@ -564,25 +570,23 @@ impl ThumbWorker {
             inflight: std::collections::HashSet::new(),
         };
         let paint = ctx.clone();
-        let spawned = std::thread::Builder::new()
-            .name("device-browser-thumbs".into())
-            .spawn(move || {
-                for job in job_rx {
-                    // Dropped while queued behind a navigation: the grid moved
-                    // on, nobody waits for this file any more.
-                    if job.generation != generation.load(std::sync::atomic::Ordering::Relaxed) {
-                        continue;
-                    }
-                    let image = decode_thumb(&job.path, &job.name, job.size);
-                    if job.generation != generation.load(std::sync::atomic::Ordering::Relaxed) {
-                        continue;
-                    }
-                    if res_tx.send(ThumbResult { key: job.key, generation: job.generation, label: job.label, image }).is_err() {
-                        break;
-                    }
-                    paint.request_repaint();
+        let spawned = std::thread::Builder::new().name("device-browser-thumbs".into()).spawn(move || {
+            for job in job_rx {
+                // Dropped while queued behind a navigation: the grid moved
+                // on, nobody waits for this file any more.
+                if job.generation != generation.load(std::sync::atomic::Ordering::Relaxed) {
+                    continue;
                 }
-            });
+                let image = decode_thumb(&job.path, &job.name, job.size);
+                if job.generation != generation.load(std::sync::atomic::Ordering::Relaxed) {
+                    continue;
+                }
+                if res_tx.send(ThumbResult { key: job.key, generation: job.generation, label: job.label, image }).is_err() {
+                    break;
+                }
+                paint.request_repaint();
+            }
+        });
         if spawned.is_err() {
             return Self::default();
         }
@@ -755,7 +759,9 @@ fn gate(ctx: &egui::Context, services: &mut crate::Services) -> Gate {
             });
         });
         if assisted {
-            ui.label(tl!("Niveta needs access to the files on this device to open them. Allow photo access here, or open Settings for every file kind (PSD, .pcraft)."));
+            ui.label(tl!(
+                "Niveta needs access to the files on this device to open them. Allow photo access here, or open Settings for every file kind (PSD, .pcraft)."
+            ));
         } else {
             ui.label(tl!("Niveta needs the \"All files access\" permission to open files from this device."));
             ui.label(tl!("Open Settings > Apps > Niveta and turn on \"All files access\", then come back here."));

@@ -82,12 +82,10 @@ fn tiff_and_psd_open_as_the_same_document() {
         assert_docs_eq(&expected(&from_psd), &from_tif);
         // The composite the TIFF carries is what the document looks like.
         let tif = tiff(&d, true);
-        let flat = import(
-            "flat.tif",
-            &niveta_codecs::encode(&niveta_codecs::decode(&tif.bytes).unwrap(), niveta_codecs::Format::Tiff, &Default::default()).unwrap(),
-        )
-        .unwrap()
-        .document;
+        let flat =
+            import("flat.tif", &niveta_codecs::encode(&niveta_codecs::decode(&tif.bytes).unwrap(), niveta_codecs::Format::Tiff, &Default::default()).unwrap())
+                .unwrap()
+                .document;
         let a = niveta_compose::flatten(&d).px;
         let b = niveta_compose::flatten(&flat).px;
         assert!(max_diff(&a, &b) <= 2.0 / 255.0, "{mode:?} {depth:?}: composite differs by {}", max_diff(&a, &b));

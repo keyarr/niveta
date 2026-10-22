@@ -387,8 +387,7 @@ pub(crate) fn invoke_unguarded(app: &mut NivetaApp, ctx: &egui::Context, id: &st
                 && app.session.active_index().zip(app.session.clipboard.as_ref()).is_some_and(|(i, clip)| {
                     let v = &app.ui.views[i];
                     let (hw, hh) = (app.last_canvas_rect.width() / 2.0 / v.zoom, app.last_canvas_rect.height() / 2.0 / v.zoom);
-                    let r =
-                        niveta_geom::Rect::new((v.center[0] - hw) as i32, (v.center[1] - hh) as i32, (v.center[0] + hw) as i32, (v.center[1] + hh) as i32);
+                    let r = niveta_geom::Rect::new((v.center[0] - hw) as i32, (v.center[1] - hh) as i32, (v.center[0] + hw) as i32, (v.center[1] + hh) as i32);
                     !clip.bounds.intersect(&r).is_empty()
                 });
             let p = match app.session.active_index() {
@@ -409,11 +408,7 @@ pub(crate) fn invoke_unguarded(app: &mut NivetaApp, ctx: &egui::Context, id: &st
             *slot = !*slot;
             Ok(json!(*slot))
         }
-        "edit.freeTransform"
-        | "edit.transform.scale"
-        | "edit.transform.skew"
-        | "edit.transform.distort"
-        | "edit.transform.perspective" => {
+        "edit.freeTransform" | "edit.transform.scale" | "edit.transform.skew" | "edit.transform.distort" | "edit.transform.perspective" => {
             // While a box is up, Scale / Skew / Distort / Perspective (and Free Transform)
             // switch its mode; otherwise they start one in that mode.
             if app.ui.transform.is_none() {

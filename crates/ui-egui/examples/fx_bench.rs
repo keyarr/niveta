@@ -14,9 +14,7 @@ use std::time::Instant;
 
 use eframe::wgpu;
 use niveta_color::{BlendMode, Color, ColorMode, SampleType};
-use niveta_doc::{
-    Adjustment, Bevel, BevelStyle, BevelTechnique, Contour, Document, Effect, FxCommon, FxPaint, Layer, LayerContent, StrokeFx, StrokePosition,
-};
+use niveta_doc::{Adjustment, Bevel, BevelStyle, BevelTechnique, Contour, Document, Effect, FxCommon, FxPaint, Layer, LayerContent, StrokeFx, StrokePosition};
 use niveta_geom::{Rect, Size};
 use serde_json::json;
 

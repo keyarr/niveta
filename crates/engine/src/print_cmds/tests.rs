@@ -78,10 +78,7 @@ fn print_dry_run_renders_a_pdf_and_reports_lp() {
 fn niveta_manages_colors_converts_to_the_printer_profile() {
     let mut s = session("rgb", 8);
     let r = s
-        .execute(
-            "file.print",
-            json!({"dryRun": true, "colorHandling": "nivetaManages", "printerProfile": "coated-cmyk", "intent": "perceptual", "bpc": false}),
-        )
+        .execute("file.print", json!({"dryRun": true, "colorHandling": "nivetaManages", "printerProfile": "coated-cmyk", "intent": "perceptual", "bpc": false}))
         .unwrap();
     assert_eq!(r["color"]["intent"], "perceptual");
     let pdf = std::fs::read(r["pdf"].as_str().unwrap()).unwrap();
