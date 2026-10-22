@@ -20,7 +20,7 @@ fn be32(b: &[u8], at: usize) -> u32 {
 }
 
 /// Walks the raw file and returns (classic layer info length, keys of the global blocks).
-fn raw_layer_section(bytes: &[u8]) -> Option<(u32, Vec<[u8; 4]>)> {
+fn raw_layer_section(name: &str, bytes: &[u8]) -> Option<(u32, Vec<[u8; 4]>)> {
     let mut p = 26;
     p += 4 + be32(bytes, p) as usize; // color mode data
     p += 4 + be32(bytes, p) as usize; // image resources
@@ -35,7 +35,7 @@ fn raw_layer_section(bytes: &[u8]) -> Option<(u32, Vec<[u8; 4]>)> {
     p += 4 + be32(bytes, p) as usize; // global layer mask
     let mut keys = Vec::new();
     while p + 12 <= end {
-        assert!(matches!(&bytes[p..p + 4], b"8BIM" | b"8B64"), "global block signature at {p}");
+        assert!(matches!(&bytes[p..p + 4], b"8BIM" | b"8B64"), "{name}: global block signature at {p}");
         keys.push(bytes[p + 4..p + 8].try_into().unwrap());
         let n = be32(bytes, p + 8) as usize;
         // Global blocks are padded to 4 bytes.
@@ -67,7 +67,7 @@ fn assert_32bit_layout(name: &str, bytes: &[u8]) {
         "{name}: placement {:?}",
         f.layer_info_placement
     );
-    let (li_len, keys) = raw_layer_section(bytes).unwrap_or_else(|| panic!("{name}: no layer section"));
+    let (li_len, keys) = raw_layer_section(name, bytes).unwrap_or_else(|| panic!("{name}: no layer section"));
     assert_eq!(li_len, 0, "{name}: classic layer info length");
     assert_eq!(keys.first(), Some(b"Lr32"), "{name}: global blocks {keys:?}");
     // Channel data: raw or ZIP (RLE is not valid for 32-bit samples), decodable.

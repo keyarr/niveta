@@ -736,7 +736,8 @@ fn convert_to_layers_conforms_the_contents_to_the_document_mode_and_depth() {
 
 fn deny_contents_paths(cmd: &str, p: &Value) -> Result<()> {
     if matches!(cmd, "layer.smartObjects.editContents" | "layer.smartObjects.convertToLayers" | "layer.smartObjects.saveContents") && p.get("path").is_some() {
-        return Err(other(format!("source path refused: {cmd}: {}", p["path"])));
+        let path = p["path"].as_str().unwrap_or_default();
+        return Err(other(format!("source path refused: {cmd}: {path}")));
     }
     Ok(())
 }
@@ -771,13 +772,8 @@ fn automation_smart_contents_accepts_memory_sources_and_explicit_targets() {
 }
 
 fn contents_file() -> std::path::PathBuf {
-    let doc = Document::with_background(
-        "source",
-        Size::new(4, 4),
-        niveta_doc::ColorMode::Rgb,
-        niveta_doc::SampleType::U8,
-        niveta_color::Color::rgb(1.0, 0.0, 0.0),
-    );
+    let doc =
+        Document::with_background("source", Size::new(4, 4), niveta_doc::ColorMode::Rgb, niveta_doc::SampleType::U8, niveta_color::Color::rgb(1.0, 0.0, 0.0));
     let path = std::env::temp_dir().join(format!("pcraft-contents-{}-{}.pcraft", std::process::id(), doc.id.0));
     std::fs::write(&path, encode_source(&doc).unwrap()).unwrap();
     path
@@ -844,8 +840,7 @@ fn automation_smart_contents_checks_nested_reads_at_nontrivial_placements() {
     for (scale, psd_uuid, allowed) in [(1.0, false, true), (1.5, false, false), (1.5, true, true)] {
         let mut inner = Document::new("inner", Size::new(4, 4), niveta_doc::ColorMode::Rgb, niveta_doc::SampleType::U8);
         let source_path = if psd_uuid {
-            let linked =
-                niveta_io::linked::LinkedFile { uuid: "nested-id".into(), file_name: "source.pcraft".into(), bytes: std::fs::read(&path).unwrap() };
+            let linked = niveta_io::linked::LinkedFile { uuid: "nested-id".into(), file_name: "source.pcraft".into(), bytes: std::fs::read(&path).unwrap() };
             inner.metadata.psd_global_blocks.push((*b"8BIM", *b"lnk2", Arc::new(niveta_io::linked::encode_linked_file(&linked))));
             linked.uuid
         } else {

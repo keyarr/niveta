@@ -126,7 +126,10 @@ impl PsdFile {
         {
             let b = global_blocks.remove(i);
             layer_info = Some(info);
-            layer_info_placement = LayerInfoPlacement::GlobalBlock { index: i, signature: b.signature, key: b.key, padding: b.padding };
+            // Photoshop pads this block to 4, so that zero padding is the canonical default
+            // here: a model with `None` writes those bytes and must read back to `None`.
+            let padding = b.padding.filter(|p| p.len() != (4 - b.data.len() % 4) % 4);
+            layer_info_placement = LayerInfoPlacement::GlobalBlock { index: i, signature: b.signature, key: b.key, padding };
         }
         let image_data = ImageData::read(&mut r, &header)?;
         Ok(PsdFile { header, color_mode_data, resources, layer_info, layer_info_placement, global_layer_mask, global_blocks, layer_mask_trailing, image_data })
@@ -177,7 +180,9 @@ impl PsdFile {
                     out.end_len(at, long)?;
                     match padding {
                         Some(bytes) => out.put(bytes),
-                        None => out.extend(std::iter::repeat_n(0u8, len % 2)),
+                        // Photoshop pads this block to 4, so a body 2 mod 4 needs its own pad bytes:
+                        // even-only padding misaligns every block that follows it (#200).
+                        None => out.extend(std::iter::repeat_n(0u8, (4 - len % 4) % 4)),
                     }
                     write_blocks(&mut out, after, v)?;
                 }
@@ -289,18 +294,31 @@ mod write_tests {
             for key in [*b"Lr16", *b"Lr32", *b"Layr"] {
                 for index in [0, 1, 2, usize::MAX] {
                     for padding in [None, Some(vec![]), Some(vec![42]), Some(vec![1, 2, 3])] {
-                        let mut file = testgen::small(version, Compression::Raw);
-                        file.global_blocks = vec![TaggedBlock::new(*b"zz01", vec![11]), TaggedBlock::new(*b"zz02", vec![12, 13])];
-                        file.layer_info_placement = LayerInfoPlacement::GlobalBlock { index, signature: *b"8B64", key, padding: padding.clone() };
-                        // An odd body catches padding calculated against the final file offset.
-                        file.layer_info.as_mut().unwrap().padding = Some(vec![77]);
-                        let actual = file.to_bytes().unwrap();
-                        let mut materialized = file.clone();
-                        let mut data = Vec::new();
-                        materialized.layer_info.take().unwrap().write_body(&mut data, version).unwrap();
-                        materialized.global_blocks.insert(index.min(materialized.global_blocks.len()), TaggedBlock { signature: *b"8B64", key, data, padding });
-                        materialized.layer_info_placement = LayerInfoPlacement::Section;
-                        assert_eq!(actual, materialized.to_bytes().unwrap(), "{version:?} {key:?} {index}");
+                        // An odd body catches padding calculated against the final file offset;
+                        // no body padding at all leaves the small fixture's 2 mod 4 length, the
+                        // one that needs its own pad bytes after the block.
+                        for body_pad in [vec![77], Vec::new()] {
+                            let mut file = testgen::small(version, Compression::Raw);
+                            file.global_blocks = vec![TaggedBlock::new(*b"zz01", vec![11]), TaggedBlock::new(*b"zz02", vec![12, 13])];
+                            file.layer_info_placement = LayerInfoPlacement::GlobalBlock { index, signature: *b"8B64", key, padding: padding.clone() };
+                            file.layer_info.as_mut().unwrap().padding = Some(body_pad);
+                            let actual = file.to_bytes().unwrap();
+                            let mut materialized = file.clone();
+                            let mut data = Vec::new();
+                            materialized.layer_info.take().unwrap().write_body(&mut data, version).unwrap();
+                            // `None` pads this block to 4, the way Photoshop writes it, so the
+                            // materialized block carries the same zeros explicitly.
+                            let block_padding = match &padding {
+                                Some(p) => p.clone(),
+                                None => vec![0; (4 - data.len() % 4) % 4],
+                            };
+                            materialized.global_blocks.insert(
+                                index.min(materialized.global_blocks.len()),
+                                TaggedBlock { signature: *b"8B64", key, data, padding: Some(block_padding) },
+                            );
+                            materialized.layer_info_placement = LayerInfoPlacement::Section;
+                            assert_eq!(actual, materialized.to_bytes().unwrap(), "{version:?} {key:?} {index}");
+                        }
                     }
                 }
             }
