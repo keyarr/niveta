@@ -124,8 +124,6 @@ pub fn header(app: &mut NivetaApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     egui::Panel::top("mobile_header")
         .exact_size(52.0 + SAFE_TOP)
-        // The top bar is one block: only the options panel below keeps a separator.
-        .show_separator_line(false)
         .frame(egui::Frame::NONE.fill(t.chrome).inner_margin(egui::Margin { left: 4, right: 8, top: SAFE_TOP as i8, bottom: 0 }))
         .show(ui, |ui| {
             // Right to left: the overflow button hugs the right edge and the title takes
@@ -1574,12 +1572,10 @@ mod tests {
         shapes
     }
 
-    /// The top bar is one block, so it carries a single separator line: the options panel's,
-    /// at the bottom of the strip. The header's own line and the content's hand-painted rules
-    /// (which landed right under the header and through the options row) used to add dark
-    /// lines inside the bar.
+    /// The top bar carries two separator lines: one under the header separating it from the
+    /// options strip, and one at the bottom of the options strip separating it from the canvas.
     #[test]
-    fn mobile_top_bar_paints_one_separator_line_at_its_bottom() {
+    fn mobile_top_bar_paints_separator_lines() {
         let mut a = app();
         a.run("file.new", json!({"width": 64, "height": 64})).unwrap();
         let ctx = egui::Context::default();
@@ -1593,9 +1589,10 @@ mod tests {
                 _ => None,
             })
             .collect();
-        // Header 52 + options strip 48: the line straddles the strip's edge at 100.
-        assert_eq!(lines.len(), 1, "one separator line for the whole top bar, got {lines:?}");
-        assert!((98.0..=100.5).contains(&lines[0]), "the line sits at the bottom of the top bar, got {}", lines[0]);
+        // Header 52 + options strip 48: one line at ~52 and one at ~100.
+        assert_eq!(lines.len(), 2, "separator lines for header and options strip, got {lines:?}");
+        assert!((51.0..=53.0).contains(&lines[0]), "the line separates header and options strip, got {}", lines[0]);
+        assert!((98.0..=100.5).contains(&lines[1]), "the line sits at the bottom of the options strip, got {}", lines[1]);
     }
 
     /// The header carries Home where undo used to be: tapping it parks the documents
