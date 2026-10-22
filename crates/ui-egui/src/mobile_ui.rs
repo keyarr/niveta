@@ -115,12 +115,11 @@ pub fn two_finger_tap(track: &mut Option<TapTrack>, now: f64, rect: egui::Rect, 
     None
 }
 
-/// Compact header: Home, the document title, undo/redo, export and an overflow menu.
-/// Undo and redo also live on two-finger taps over the canvas (left half undoes, right
-/// half redoes), but the header carries them too: they are the buttons a photo editor
-/// is used for most. Everything else lives one tap away in the command palette or the
+/// Compact header: Home, the document title, export and an overflow menu. Undo and redo
+/// live on two-finger taps over the canvas (left half undoes, right half redoes), so they
+/// take no header room. Everything else lives one tap away in the command palette or the
 /// overflow menu, so no menu bar has to fit in 360 pt. With no document open only the title
-/// and the overflow menu stay: Home, history and export need an editable document.
+/// and the overflow menu stay: Home and export need an editable document.
 pub fn header(app: &mut NivetaApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     egui::Panel::top("mobile_header")
@@ -146,16 +145,6 @@ pub fn header(app: &mut NivetaApp, ui: &mut egui::Ui) {
                     let export_on = crate::menus::is_enabled(app, "file.export.exportAs");
                     if ui.add_enabled_ui(export_on, |ui| widgets::secondary_button(ui, tl!("Export"), 64.0)).inner.clicked() {
                         crate::mobile_export::open(app);
-                    }
-                    // The row is laid out right to left, so redo is added first: undo
-                    // ends up on its left, next to the file name.
-                    let can_redo = crate::menus::is_enabled(app, "edit.redo");
-                    if ui.add_enabled_ui(can_redo, |ui| history_button(ui, "redo-2", tl!("Redo"))).inner.clicked() {
-                        run_command(app, ui.ctx(), "edit.redo");
-                    }
-                    let can_undo = crate::menus::is_enabled(app, "edit.undo");
-                    if ui.add_enabled_ui(can_undo, |ui| history_button(ui, "undo-2", tl!("Undo"))).inner.clicked() {
-                        run_command(app, ui.ctx(), "edit.undo");
                     }
                 }
                 let title =
@@ -222,9 +211,8 @@ pub fn header(app: &mut NivetaApp, ui: &mut egui::Ui) {
 const MENU_W: f32 = 280.0;
 const MENU_ROW_H: f32 = 40.0;
 const MENU_GAP: f32 = 2.0;
-/// The Home button's touch size, and the undo/redo buttons' (smaller) one.
+/// The Home button's touch size.
 const HOME_BTN: f32 = 48.0;
-const HISTORY_BTN: f32 = 36.0;
 /// The search field's inner padding: the magnifier keeps this distance from the frame.
 const SEARCH_PAD: f32 = 8.0;
 
@@ -242,18 +230,6 @@ fn run_command(app: &mut NivetaApp, ctx: &egui::Context, id: &str) {
         app.ui.status = e;
         app.ui.status_error = true;
     }
-}
-
-/// Undo/redo in the header: a square icon button, greyed out when the history has
-/// nothing to undo or to redo.
-fn history_button(ui: &mut egui::Ui, icon: &str, tip: &str) -> egui::Response {
-    let t = Tokens::get(ui.ctx());
-    let enabled = ui.is_enabled();
-    let (rect, resp) = ui.allocate_exact_size(vec2(HISTORY_BTN, HISTORY_BTN), Sense::click());
-    let tint = if enabled { icons::button_chrome(ui, rect, false, resp.hovered()) } else { t.text_faint };
-    icons::paint(ui, rect, icon, 20.0, tint);
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, tip));
-    resp.on_hover_text(tip)
 }
 
 /// The transform commands share one row: the list opens in place, so eight rows do
@@ -886,18 +862,6 @@ mod tests {
         rects
     }
 
-    /// What the last pass knows about a labelled widget (the buttons carry their label
-    /// as their accessible name).
-    fn widget_info(ctx: &egui::Context, label: &str) -> Option<egui::WidgetInfo> {
-        let ids: Vec<egui::Id> = ctx.viewport(|v| v.prev_pass.widgets.layers().flat_map(|(_, w)| w.iter()).map(|w| w.id).collect());
-        ctx.viewport(|v| {
-            ids.iter().find_map(|id| {
-                let info = v.prev_pass.widgets.info(*id)?;
-                (info.label.as_deref() == Some(label)).then(|| info.clone())
-            })
-        })
-    }
-
     /// A phone with a document open and two settled frames of bottom bar behind it.
     fn bar(app: &mut NivetaApp) -> egui::Context {
         app.run("file.new", json!({"width": 64, "height": 64})).unwrap();
@@ -1367,6 +1331,52 @@ mod tests {
         assert!(link.min.x >= 0.0 && link.max.y <= 800.0, "Link starts on screen: {link:?}");
     }
 
+    /// The Layers footer's New cell opens a menu instead of making a layer on the
+    /// spot: a plain layer, or a picture imported as one (a phone had no way to do
+    /// the latter; without a picker the on-device browser picks the picture).
+    #[test]
+    fn layers_footer_new_cell_offers_a_layer_or_an_imported_picture() {
+        use egui_kittest::kittest::Queryable;
+        crate::i18n::set_current(crate::i18n::Lang::EN);
+        let mut a = app();
+        a.run("file.new", json!({"width": 64, "height": 64})).unwrap();
+        a.ui.mobile.panel = Some(crate::dock::Group::Layers);
+        let mut h = Harness::builder().with_size(vec2(360.0, 800.0)).build_ui_state(
+            |ui, app: &mut NivetaApp| {
+                if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
+                    return;
+                }
+                header(app, ui);
+                tool_bar(app, ui);
+                sheet(app, ui);
+                crate::canvas::document_area(app, ui);
+            },
+            a,
+        );
+        NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
+        h.run_steps(8);
+        // The cell is named after its tip (the layer drop target keeps that name).
+        let new_cell = h.get_by_label("Create a new layer").rect().center();
+        let tap = |h: &mut Harness<'_, NivetaApp>, at: egui::Pos2| {
+            h.drag_at(at);
+            h.run_steps(1);
+            h.drop_at(at);
+            h.run_steps(3);
+        };
+        tap(&mut h, new_cell);
+        let plain_node = h.get_by_label("New Layer");
+        assert!(plain_node.rect().max.y <= new_cell.y, "the floating card opens upwards above the footer");
+        let plain = plain_node.rect().center();
+        tap(&mut h, plain);
+        assert_eq!(h.state().session.journal.last().map(|(id, _)| id.as_str()), Some("layer.new.layer"));
+        // The menu closed with its item: open it again for the import.
+        let new_cell = h.get_by_label("Create a new layer").rect().center();
+        tap(&mut h, new_cell);
+        let import = h.get_by_label("Import picture as layer").rect().center();
+        tap(&mut h, import);
+        assert!(h.state().ui.device_browser.is_some(), "no picker service: the phone browser picks the picture");
+    }
+
     /// The options strip hides the active tool's name (the bottom bar already marks it)
     /// but keeps its contextual controls.
     #[test]
@@ -1742,8 +1752,7 @@ mod tests {
         tap(&mut h, egui::pos2(332.0, 26.0));
         assert!(h.query_by_label("Transform").is_some(), "the group is one row");
         assert!(h.query_by_label("Scale").is_none(), "the list starts closed");
-        // Redo moved to the header: the menu carries it no more.
-        assert_eq!(h.query_all_by_label("Redo").count(), 1, "only the header carries redo");
+        assert!(h.query_by_label("Redo").is_none(), "the menu carries redo no more");
         let group = h.get_by_label("Transform").rect().center();
         tap(&mut h, group);
         assert!(h.query_by_label("Scale").is_some(), "the list opens in place");
@@ -1759,7 +1768,7 @@ mod tests {
         assert!((search.min.x - fit.min.x - SEARCH_PAD).abs() <= 2.0, "the search field is on the menu's axis: {search:?} vs {fit:?}");
     }
 
-    /// The header carries undo and redo, and nothing falls off the screen: the file
+    /// The header carries Export, and nothing falls off the screen: the file
     /// name is what gives up the room.
     #[test]
     fn the_header_keeps_its_buttons_on_screen() {
@@ -1778,28 +1787,10 @@ mod tests {
             a,
         );
         NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
-        // The widget info (the buttons' accessible name and enabled state) is only
-        // kept when the debug flag is on.
-        h.ctx.all_styles_mut(|s| s.debug.show_interactive_widgets = true);
         h.run_steps(8);
-        assert!(h.query_by_label("Undo").is_some(), "the header carries undo");
-        assert!(h.query_by_label("Redo").is_some(), "the header carries redo");
-        for label in ["Undo", "Redo", "Export"] {
-            let r = h.get_by_label(label).rect();
-            assert!(r.min.x >= 0.0 && r.max.x <= 360.0, "{label} is on screen: {r:?}");
-        }
-        // A fresh document has no history: undo and redo are greyed out.
-        assert!(!widget_info(&h.ctx, "Undo").expect("the undo button").enabled, "nothing to undo yet");
-        assert!(!widget_info(&h.ctx, "Redo").expect("the redo button").enabled, "nothing to redo yet");
-        // An edit enables undo, and the button undoes it.
-        h.state_mut().run("layer.new.layer", json!({"name": "Layer"})).unwrap();
-        h.run_steps(2);
-        assert!(widget_info(&h.ctx, "Undo").expect("the undo button").enabled, "there is something to undo");
-        let undo = h.get_by_label("Undo").rect().center();
-        h.drag_at(undo);
-        h.run_steps(1);
-        h.drop_at(undo);
-        h.run_steps(3);
-        assert_eq!(h.state().session.active().unwrap().doc.layers.len(), 1, "the layer is gone again");
+        assert!(h.query_by_label("Undo").is_none(), "no undo in the header");
+        assert!(h.query_by_label("Redo").is_none(), "no redo in the header");
+        let r = h.get_by_label("Export").rect();
+        assert!(r.min.x >= 0.0 && r.max.x <= 360.0, "Export is on screen: {r:?}");
     }
 }

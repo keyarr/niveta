@@ -1877,11 +1877,28 @@ fn layers(app: &mut NivetaApp, ui: &mut egui::Ui) {
                         actions.push(("layer.new.group".into(), json!({})));
                     }
                     actions.extend(footer_drop(ui, &group, footer_drag, "layer.groupLayers"));
-                    let new_layer =
-                        layer_footer_cell(ui, "square-plus", tl!("New"), &crate::shortcuts::tip_label(app, "Create a new layer", "layer.new.layer"), cell_size);
-                    if new_layer.clicked() {
-                        actions.push(("layer.new.layer".into(), json!({})));
-                    }
+                    let new_layer = layer_footer_menu_cell(
+                        ui,
+                        "square-plus",
+                        tl!("New"),
+                        &crate::shortcuts::tip_label(app, "Create a new layer", "layer.new.layer"),
+                        cell_size,
+                    );
+                    egui::Popup::menu(&new_layer)
+                        .open_memory(footer_menu_right_click(&new_layer))
+                        .align(egui::RectAlign::TOP_END)
+                        .align_alternatives(&[egui::RectAlign::TOP_START])
+                        .show(|ui| {
+                            ui.set_min_width(190.0);
+                            if ui.button(tl!("New Layer")).clicked() {
+                                actions.push(("layer.new.layer".into(), json!({})));
+                                ui.close();
+                            }
+                            if ui.button(tl!("Import picture as layer")).clicked() {
+                                actions.push(("ui.importPictureAsLayer".into(), json!({})));
+                                ui.close();
+                            }
+                        });
                     actions.extend(footer_drop(ui, &new_layer, footer_drag, "layer.duplicate"));
                     let trash = layer_footer_cell(ui, "trash", tl!("Delete"), tl!("Delete layer"), cell_size);
                     if trash.clicked() {
@@ -1974,6 +1991,10 @@ fn layers(app: &mut NivetaApp, ui: &mut egui::Ui) {
         if id == "ui.vectorMaskTarget" {
             app.ui.vector_mask_target = p.as_bool().unwrap_or(false);
             app.ui.mask_target = false;
+            continue;
+        }
+        if id == "ui.importPictureAsLayer" {
+            app.import_picture_as_layer();
             continue;
         }
         if p.is_null() {

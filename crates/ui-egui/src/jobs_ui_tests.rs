@@ -297,3 +297,26 @@ fn templates_open_untitled_in_the_background() {
     assert_eq!((st.doc.name.as_str(), st.path.as_deref()), ("Untitled-1", None));
     assert_eq!(h.state().ui.recent_files.first().map(String::as_str), Some("/tmp/niveta-test/card.psdt"));
 }
+
+#[test]
+fn open_card_with_long_name_stays_inside_the_card() {
+    let mut h = app_harness();
+    let gate = Arc::new(AtomicBool::new(false));
+    let job = slow_job(h.state_mut(), &gate);
+    let long_name = "IMG_20261022_153012_ultra_long_camera_shot_edited_final_version_without_spaces_abcdefghijklmnopqrstuvwxyz0123456789.jpg";
+    h.state_mut().jobs.opens.push(crate::jobs_ui::OpenTab { job, name: long_name.into(), path: None, slot: None });
+    h.state_mut().jobs.focus = Some(job);
+    let mut rendered = false;
+    let ctx = h.ctx.clone();
+    ctx.run_ui(
+        egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::pos2(0.0, 0.0), vec2(360.0, 800.0))), ..Default::default() },
+        |ui| {
+            crate::jobs_ui::open_card(h.state_mut(), ui, job);
+            rendered = true;
+        },
+    )
+    .textures_delta
+    .clear();
+    assert!(rendered);
+    gate.store(true, Ordering::Relaxed);
+}

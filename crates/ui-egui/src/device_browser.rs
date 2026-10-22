@@ -65,6 +65,16 @@ const CELL_H: f32 = CELL_IMG + CELL_TEXT_H;
 const GRID_GAP_X: f32 = 4.0;
 const GRID_GAP_Y: f32 = 8.0;
 
+/// What a picked file does: open it as a document, or import it as a layer.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Mode {
+    /// File › Open: the file opens as a document.
+    #[default]
+    Open,
+    /// Import picture as layer: the file becomes a layer of the open document.
+    Place,
+}
+
 /// Transient browser state (never persisted: `#[serde(skip)]` on `UiState`).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Browser {
@@ -76,6 +86,7 @@ pub struct Browser {
     /// stat per file plus the sort) every frame froze the open animation on
     /// big folders; `None` means "list on the next show".
     cached: Option<(PathBuf, Result<Listing, String>)>,
+    mode: Mode,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -116,7 +127,13 @@ fn start_dir() -> PathBuf {
 
 /// File › Open without a system picker: show the browser modal.
 pub fn open(app: &mut NivetaApp) {
-    app.ui.device_browser = Some(Browser { dir: start_dir(), error: None, access: None, cached: None });
+    app.ui.device_browser = Some(Browser { dir: start_dir(), error: None, access: None, cached: None, mode: Mode::Open });
+}
+
+/// Import picture as layer without a system picker: the same browser, but the
+/// picked file becomes a layer of the open document instead of a document of its own.
+pub fn open_place(app: &mut NivetaApp) {
+    app.ui.device_browser = Some(Browser { dir: start_dir(), error: None, access: None, cached: None, mode: Mode::Place });
 }
 
 /// What File › Open shows: exactly what `import` opens
@@ -238,12 +255,16 @@ pub fn show(app: &mut NivetaApp, ctx: &egui::Context) {
     let mut picked: Option<String> = None;
     let mut navigated_to: Option<PathBuf> = None;
     let mut closed = false;
+    let title = match b.mode {
+        Mode::Open => tl!("Open"),
+        Mode::Place => tl!("Import picture as layer"),
+    };
     let mut budget = THUMB_BUDGET;
     let mut pending = false;
     egui::Modal::new(egui::Id::new("device-browser")).show(ctx, |ui| {
         ui.set_min_width(320.0);
         ui.horizontal(|ui| {
-            ui.label(egui::RichText::new(tl!("Open")).size(14.0).strong());
+            ui.label(egui::RichText::new(title).size(14.0).strong());
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if crate::icons::button(ui, "x", 32.0, false, tl!("Close")).clicked() {
                     closed = true;
@@ -316,7 +337,12 @@ pub fn show(app: &mut NivetaApp, ctx: &egui::Context) {
         }
     });
     if let Some(path) = picked {
-        app.open_paths(&[path]);
+        match b.mode {
+            Mode::Open => {
+                app.open_paths(&[path]);
+            }
+            Mode::Place => app.place_path(&path),
+        }
     } else if let Some(dir) = navigated_to {
         b.dir = dir;
         b.error = None;
@@ -909,7 +935,7 @@ mod tests {
             std::fs::write(dir.join(name), bytes).unwrap();
         }
         let mut app = NivetaApp::new(niveta_engine::Session::new(), crate::Services::default());
-        app.ui.device_browser = Some(Browser { dir: dir.clone(), error: None, access: Some(true), cached: None });
+        app.ui.device_browser = Some(Browser { dir: dir.clone(), error: None, access: Some(true), cached: None, mode: Mode::Open });
         let mut h = Harness::builder().with_size(egui::vec2(360.0, 800.0)).build_ui_state(
             |ui, app: &mut NivetaApp| {
                 if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
@@ -945,6 +971,43 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// "Import picture as layer": the picked file becomes a layer of the open
+    /// document, not a document of its own.
+    #[test]
+    fn place_mode_imports_the_picked_picture_as_a_layer() {
+        use egui_kittest::Harness;
+        use egui_kittest::kittest::Queryable;
+        use serde_json::json;
+        let dir = std::env::temp_dir().join(format!("niveta-place-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed)));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let img = niveta_codecs::Image::from_u8(4, 4, niveta_codecs::ChannelLayout::Rgba, [255u8, 0, 0, 255].repeat(16)).unwrap();
+        std::fs::write(dir.join("red.png"), niveta_codecs::encode(&img, niveta_codecs::Format::Png, &niveta_codecs::EncodeOptions::default()).unwrap()).unwrap();
+
+        let mut app = NivetaApp::new(niveta_engine::Session::new(), crate::Services::default());
+        app.run("file.new", json!({"width": 32, "height": 32})).unwrap();
+        let before = app.session.active().expect("document").doc.layers.len();
+        app.ui.device_browser = Some(Browser { dir: dir.clone(), error: None, access: Some(true), cached: None, mode: Mode::Place });
+        let mut h = Harness::builder().with_size(egui::vec2(360.0, 800.0)).build_ui_state(
+            |ui, app: &mut NivetaApp| {
+                if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
+                    return;
+                }
+                show(app, ui.ctx());
+            },
+            app,
+        );
+        NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
+        h.run_steps(6);
+        h.get_by_label("red.png").click();
+        h.run_steps(4);
+        let st = h.state().session.active().expect("the document stays open");
+        assert_eq!(h.state().session.documents().len(), 1, "no document of its own");
+        assert_eq!(st.doc.layers.len(), before + 1, "the picture became a layer");
+        assert!(st.doc.layers.iter().any(|l| matches!(l.content, niveta_doc::LayerContent::Smart(_))), "placed as a smart object");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn grid_only_lays_out_the_visible_rows() {
         use egui_kittest::Harness;
@@ -959,7 +1022,7 @@ mod tests {
             std::fs::write(dir.join(format!("img{i:03}.psd")), b"x").unwrap();
         }
         let mut app = NivetaApp::new(niveta_engine::Session::new(), crate::Services::default());
-        app.ui.device_browser = Some(Browser { dir: dir.clone(), error: None, access: Some(true), cached: None });
+        app.ui.device_browser = Some(Browser { dir: dir.clone(), error: None, access: Some(true), cached: None, mode: Mode::Open });
         let mut h = Harness::builder().with_size(egui::vec2(360.0, 800.0)).build_ui_state(
             |ui, app: &mut NivetaApp| {
                 if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
@@ -982,7 +1045,7 @@ mod tests {
         use egui_kittest::kittest::Queryable;
         let t = TempDir::new();
         let mut app = NivetaApp::new(niveta_engine::Session::new(), crate::Services::default());
-        app.ui.device_browser = Some(Browser { dir: t.dir.clone(), error: None, access: Some(true), cached: None });
+        app.ui.device_browser = Some(Browser { dir: t.dir.clone(), error: None, access: Some(true), cached: None, mode: Mode::Open });
         let mut h = Harness::builder().with_size(egui::vec2(360.0, 800.0)).build_ui_state(
             |ui, app: &mut NivetaApp| {
                 if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
@@ -1028,7 +1091,7 @@ mod tests {
         let t = TempDir::new();
         let services = crate::Services { storage_has_access: Some(Box::new(|| true)), ..Default::default() };
         let mut app = NivetaApp::new(niveta_engine::Session::new(), services);
-        app.ui.device_browser = Some(Browser { dir: t.dir.clone(), error: None, access: None, cached: None });
+        app.ui.device_browser = Some(Browser { dir: t.dir.clone(), error: None, access: None, cached: None, mode: Mode::Open });
         let mut h = gate_harness(app);
         NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
         h.run_steps(6);
@@ -1041,7 +1104,7 @@ mod tests {
         use egui_kittest::kittest::Queryable;
         let t = TempDir::new();
         let mut app = NivetaApp::new(niveta_engine::Session::new(), hooked_services());
-        app.ui.device_browser = Some(Browser { dir: t.dir.clone(), error: None, access: None, cached: None });
+        app.ui.device_browser = Some(Browser { dir: t.dir.clone(), error: None, access: None, cached: None, mode: Mode::Open });
         let mut h = gate_harness(app);
         NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
         h.run_steps(6);

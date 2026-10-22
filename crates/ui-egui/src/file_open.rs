@@ -69,6 +69,32 @@ impl NivetaApp {
         }
     }
 
+    /// Import a picture as a layer: the shell's file picker where there is one, the
+    /// on-device browser on a phone. The picture lands as a layer of the active document,
+    /// like File › Place Embedded.
+    pub(crate) fn import_picture_as_layer(&mut self) {
+        // No picker service on a phone: the on-device browser picks the picture.
+        if self.services.file_dialog.is_none() {
+            crate::device_browser::open_place(self);
+            return;
+        }
+        let Ok(doc) = self.active_doc_id() else { return };
+        if let Err(e) = self.pick_file_bytes(move |app, name, bytes| {
+            app.refocus(doc)?;
+            app.place_bytes(&name, bytes, None)
+        }) && e != crate::file_dialog::CANCELLED
+        {
+            self.ui.status = e;
+            self.ui.status_error = true;
+        }
+    }
+
+    /// Place the file at `path` as a layer of the active document: what the on-device
+    /// browser hands back for "Import picture as layer".
+    pub(crate) fn place_path(&mut self, path: &str) {
+        let _ = self.run("file.placeEmbedded", serde_json::json!({ "path": path }));
+    }
+
     /// Open `bytes` read from the file at `path`: the document is named after the file, keeps
     /// `path` for File › Save unless it is a derivative preview, and `path` goes to the top of Open Recent. Returns the import
     /// warnings (also shown to the user).

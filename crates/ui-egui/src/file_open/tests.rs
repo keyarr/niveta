@@ -129,6 +129,23 @@ fn cancelling_file_open_opens_nothing() {
     assert!(!app.file_dialog_open());
 }
 
+/// The Layers footer's "Import picture as layer": the picked picture lands as a layer of
+/// the open document, not as a document of its own.
+#[test]
+fn import_picture_as_layer_places_the_picked_picture() {
+    let (mut app, _) = app_with(vec![Some(FileDialogAnswer::Contents("red.png".into(), png_bytes(4, 4)))]);
+    app.open_bytes("canvas.psd", b"x").unwrap();
+    let before = layer_count(&app);
+
+    app.import_picture_as_layer();
+    answer(&mut app);
+
+    assert_eq!(app.session.documents().len(), 1, "no document of its own");
+    assert_eq!(layer_count(&app), before + 1, "the picture became a layer");
+    let layers = &app.session.active().unwrap().doc.layers;
+    assert!(layers.iter().any(|l| matches!(l.content, niveta_doc::LayerContent::Smart(_))), "placed as a smart object");
+}
+
 #[test]
 fn open_buttons_say_so_without_a_picker_instead_of_silence() {
     // Android before the SAF bridge: no file_dialog service. The Home-screen and

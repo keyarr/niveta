@@ -340,14 +340,15 @@ pub fn open_card(app: &mut NivetaApp, ui: &mut egui::Ui, job: JobId) {
     let t = Tokens::get(ui.ctx());
     let area = ui.available_rect_before_wrap();
     ui.painter().rect_filled(area, 0.0, t.canvas);
-    let card = Rect::from_center_size(area.center(), vec2(340.0, 132.0));
+    let card_w = 340.0f32.min(area.width() - 32.0).max(200.0);
+    let card = Rect::from_center_size(area.center(), vec2(card_w, 132.0));
     ui.painter().rect_filled(card, t.radius_lg, t.card);
     ui.painter().rect_stroke(card, t.radius_lg, Stroke::new(1.0, t.card_border), egui::StrokeKind::Inside);
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(card.shrink(18.0)));
-    child.label(RichText::new(crate::i18n::fmt(tl!("Opening {name}"), &[("name", &tab.name)])).font(crate::theme::semibold(14.0)));
+    child.add(egui::Label::new(RichText::new(crate::i18n::fmt(tl!("Opening {name}"), &[("name", &tab.name)])).font(crate::theme::semibold(14.0))).truncate());
     child.add_space(4.0);
     let msg = if j.message.is_empty() { tl!("Reading…").to_string() } else { format!("{}…", j.message) };
-    child.label(RichText::new(msg).color(t.text_dim).size(12.0));
+    child.add(egui::Label::new(RichText::new(msg).color(t.text_dim).size(12.0)).truncate());
     child.add_space(10.0);
     let (br, _) = child.allocate_exact_size(vec2(child.available_width(), 8.0), Sense::hover());
     bar(&child, br, shown_fraction(&j), &t);
