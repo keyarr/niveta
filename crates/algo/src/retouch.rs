@@ -117,58 +117,87 @@ pub fn sponge(c: [f32; 3], amount: f32, saturate: bool, vibrance: bool) -> [f32;
 pub fn local_blur(data: &[f32], w: usize, h: usize, ch: usize, alpha: Option<usize>, win: (usize, usize, usize, usize), sigma: f32) -> Vec<f32> {
     let (x0, y0, x1, y1) = win;
     let (ow, oh) = (x1 - x0, y1 - y0);
+    if ow == 0 || oh == 0 || w == 0 || h == 0 || ch == 0 {
+        return Vec::new();
+    }
     let r = (sigma * 3.0).ceil().max(1.0) as i32;
     let k: Vec<f32> = (-r..=r).map(|i| (-((i * i) as f32) / (2.0 * sigma * sigma).max(1e-6)).exp()).collect();
     let ks: f32 = k.iter().sum();
     let k: Vec<f32> = k.into_iter().map(|v| v / ks).collect();
-    let get = |x: i32, y: i32, out: &mut [f32]| {
-        let (xx, yy) = (x.clamp(0, w as i32 - 1) as usize, y.clamp(0, h as i32 - 1) as usize);
-        let i = (yy * w + xx) * ch;
-        out.copy_from_slice(&data[i..i + ch]);
-        if let Some(a) = alpha {
-            let av = out[a];
-            for (c, v) in out.iter_mut().enumerate() {
-                if c != a {
-                    *v *= av;
+    let th = oh + 2 * r as usize;
+    // Clamped source offsets, shared by every row: columns are relative to `x0`, rows to `y0`.
+    let cols: Vec<usize> = (-r..ow as i32 + r).map(|dx| (x0 as i32 + dx).clamp(0, w as i32 - 1) as usize * ch).collect();
+    let rows: Vec<usize> = (0..th).map(|ty| (y0 as i32 + ty as i32 - r).clamp(0, h as i32 - 1) as usize * w * ch).collect();
+    let a = alpha.unwrap_or(usize::MAX);
+    let mut tmp = vec![0.0f32; ow * th * ch];
+    let horizontal = |ty: usize, row: &mut [f32]| {
+        let base = rows[ty];
+        for ox in 0..ow {
+            let o = ox * ch;
+            for (i, kv) in k.iter().enumerate() {
+                let s = base + cols[ox + i];
+                let px = &data[s..s + ch];
+                let av = px.get(a).copied().unwrap_or(1.0);
+                for c in 0..ch {
+                    let v = if c == a { px[c] } else { px[c] * av };
+                    row[o + c] += v * kv;
                 }
             }
         }
     };
-    // Horizontal pass over the window rows extended vertically by r.
-    let th = oh + 2 * r as usize;
-    let mut tmp = vec![0.0f32; ow * th * ch];
-    let mut px = vec![0.0f32; ch];
-    for ty in 0..th {
-        let y = y0 as i32 + ty as i32 - r;
-        for ox in 0..ow {
-            let o = (ty * ow + ox) * ch;
-            for (i, kv) in k.iter().enumerate() {
-                get(x0 as i32 + ox as i32 + i as i32 - r, y, &mut px);
-                for c in 0..ch {
-                    tmp[o + c] += px[c] * kv;
-                }
+    // Small dabs stay on one thread: rayon's task overhead would outweigh the convolution.
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use rayon::prelude::*;
+        if ow * th >= 64 * 64 {
+            tmp.par_chunks_mut(ow * ch).enumerate().for_each(|(ty, row)| horizontal(ty, row));
+        } else {
+            for (ty, row) in tmp.chunks_mut(ow * ch).enumerate() {
+                horizontal(ty, row);
             }
         }
     }
+    #[cfg(target_arch = "wasm32")]
+    for (ty, row) in tmp.chunks_mut(ow * ch).enumerate() {
+        horizontal(ty, row);
+    }
     let mut out = vec![0.0f32; ow * oh * ch];
-    for oy in 0..oh {
-        for ox in 0..ow {
-            let o = (oy * ow + ox) * ch;
-            for (i, kv) in k.iter().enumerate() {
-                let s = ((oy + i) * ow + ox) * ch;
-                for c in 0..ch {
-                    out[o + c] += tmp[s + c] * kv;
-                }
+    let vertical = |oy: usize, row: &mut [f32]| {
+        // Tap-major: each `tmp` row is read once, sequentially. Per pixel the tap order is still
+        // 0..k, so this is the same sum as the pixel-major loop, with far fewer cache misses.
+        for (i, kv) in k.iter().enumerate() {
+            let src = &tmp[(oy + i) * ow * ch..][..ow * ch];
+            for (o, s) in row.iter_mut().zip(src) {
+                *o += *s * kv;
             }
-            if let Some(a) = alpha {
-                let av = out[o + a];
+        }
+        if alpha.is_some() {
+            let src = ((y0 + oy) * w + x0) * ch;
+            for ox in 0..ow {
+                let o = ox * ch;
+                let av = row[o + a];
                 for c in 0..ch {
                     if c != a {
-                        out[o + c] = if av > 1e-6 { out[o + c] / av } else { data[((y0 + oy) * w + x0 + ox) * ch + c] };
+                        row[o + c] = if av > 1e-6 { row[o + c] / av } else { data[src + ox * ch + c] };
                     }
                 }
             }
         }
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use rayon::prelude::*;
+        if ow * oh >= 64 * 64 {
+            out.par_chunks_mut(ow * ch).enumerate().for_each(|(oy, row)| vertical(oy, row));
+        } else {
+            for (oy, row) in out.chunks_mut(ow * ch).enumerate() {
+                vertical(oy, row);
+            }
+        }
+    }
+    #[cfg(target_arch = "wasm32")]
+    for (oy, row) in out.chunks_mut(ow * ch).enumerate() {
+        vertical(oy, row);
     }
     out
 }
@@ -290,6 +319,69 @@ mod tests {
         let sp = local_sharpen(&smooth, w, h, ch, None, win, 4.0, true);
         let hi = smooth.iter().cloned().fold(0.0, f32::max);
         assert!(sp.iter().all(|v| *v <= hi + 1e-6));
+    }
+
+    #[test]
+    fn local_blur_matches_direct_convolution() {
+        // The optimised kernel (precomputed clamped offsets, parallel rows) must stay bit-identical
+        // to the straightforward separable convolution, on both sides of the parallel threshold.
+        let (w, h, ch) = (90, 70, 4);
+        let data: Vec<f32> = (0..w * h * ch).map(|i| (i * 37 % 101) as f32 / 100.0).collect();
+        let sigma = 2.3f32;
+        let r = (sigma * 3.0).ceil().max(1.0) as i32;
+        let k: Vec<f32> = (-r..=r).map(|i| (-((i * i) as f32) / (2.0 * sigma * sigma)).exp()).collect();
+        let ks: f32 = k.iter().sum();
+        let k: Vec<f32> = k.into_iter().map(|v| v / ks).collect();
+        for win in [(20, 20, 40, 40), (5, 5, 85, 65)] {
+            let (x0, y0, x1, y1) = win;
+            let (ow, oh) = (x1 - x0, y1 - y0);
+            let get = |x: i32, y: i32| {
+                let (xx, yy) = (x.clamp(0, w as i32 - 1) as usize, y.clamp(0, h as i32 - 1) as usize);
+                let i = (yy * w + xx) * ch;
+                let mut p = data[i..i + ch].to_vec();
+                let av = p[3];
+                for v in p.iter_mut().take(3) {
+                    *v *= av;
+                }
+                p
+            };
+            let th = oh + 2 * r as usize;
+            let mut tmp = vec![0.0f32; ow * th * ch];
+            for ty in 0..th {
+                let y = y0 as i32 + ty as i32 - r;
+                for ox in 0..ow {
+                    let o = (ty * ow + ox) * ch;
+                    for (i, kv) in k.iter().enumerate() {
+                        let p = get(x0 as i32 + ox as i32 + i as i32 - r, y);
+                        for c in 0..ch {
+                            tmp[o + c] += p[c] * kv;
+                        }
+                    }
+                }
+            }
+            let mut out = vec![0.0f32; ow * oh * ch];
+            for oy in 0..oh {
+                for ox in 0..ow {
+                    let o = (oy * ow + ox) * ch;
+                    for (i, kv) in k.iter().enumerate() {
+                        let s = ((oy + i) * ow + ox) * ch;
+                        for c in 0..ch {
+                            out[o + c] += tmp[s + c] * kv;
+                        }
+                    }
+                    let av = out[o + 3];
+                    for c in 0..3 {
+                        out[o + c] = if av > 1e-6 { out[o + c] / av } else { data[((y0 + oy) * w + x0 + ox) * ch + c] };
+                    }
+                }
+            }
+            assert_eq!(local_blur(&data, w, h, ch, Some(3), win, sigma), out);
+        }
+    }
+
+    #[test]
+    fn local_blur_empty_window_is_empty() {
+        assert!(local_blur(&[], 0, 0, 4, Some(3), (0, 0, 0, 0), 1.0).is_empty());
     }
 
     #[test]
