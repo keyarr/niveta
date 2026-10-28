@@ -125,23 +125,32 @@ pub fn local_blur(data: &[f32], w: usize, h: usize, ch: usize, alpha: Option<usi
     let ks: f32 = k.iter().sum();
     let k: Vec<f32> = k.into_iter().map(|v| v / ks).collect();
     let th = oh + 2 * r as usize;
-    // Clamped source offsets, shared by every row: columns are relative to `x0`, rows to `y0`.
-    let cols: Vec<usize> = (-r..ow as i32 + r).map(|dx| (x0 as i32 + dx).clamp(0, w as i32 - 1) as usize * ch).collect();
+    // Clamped source offsets, shared by every row.
+    let cols: Vec<usize> = (0..ow + 2 * r as usize).map(|sx| (x0 as i32 + sx as i32 - r).clamp(0, w as i32 - 1) as usize * ch).collect();
     let rows: Vec<usize> = (0..th).map(|ty| (y0 as i32 + ty as i32 - r).clamp(0, h as i32 - 1) as usize * w * ch).collect();
+    let padded_w = cols.len();
     let a = alpha.unwrap_or(usize::MAX);
     let mut tmp = vec![0.0f32; ow * th * ch];
-    let horizontal = |ty: usize, row: &mut [f32]| {
+    let horizontal = |ty: usize, row: &mut [f32], scratch: &mut [f32]| {
         let base = rows[ty];
-        for ox in 0..ow {
-            let o = ox * ch;
-            for (i, kv) in k.iter().enumerate() {
-                let s = base + cols[ox + i];
-                let px = &data[s..s + ch];
+        for (sx, &col) in cols.iter().enumerate() {
+            let s = base + col;
+            let px = &data[s..s + ch];
+            let o = sx * ch;
+            if let Some(a) = alpha {
                 let av = px.get(a).copied().unwrap_or(1.0);
                 for c in 0..ch {
-                    let v = if c == a { px[c] } else { px[c] * av };
-                    row[o + c] += v * kv;
+                    scratch[o + c] = if c == a { px[c] } else { px[c] * av };
                 }
+            } else {
+                scratch[o..o + ch].copy_from_slice(px);
+            }
+        }
+
+        for (i, kv) in k.iter().enumerate() {
+            let src = &scratch[i * ch..(i + ow) * ch];
+            for (dst, src) in row.iter_mut().zip(src) {
+                *dst += *src * kv;
             }
         }
     };
@@ -150,16 +159,20 @@ pub fn local_blur(data: &[f32], w: usize, h: usize, ch: usize, alpha: Option<usi
     {
         use rayon::prelude::*;
         if ow * th >= 64 * 64 {
-            tmp.par_chunks_mut(ow * ch).enumerate().for_each(|(ty, row)| horizontal(ty, row));
+            tmp.par_chunks_mut(ow * ch).enumerate().for_each_init(|| vec![0.0f32; padded_w * ch], |scratch, (ty, row)| horizontal(ty, row, scratch));
         } else {
+            let mut scratch = vec![0.0f32; padded_w * ch];
             for (ty, row) in tmp.chunks_mut(ow * ch).enumerate() {
-                horizontal(ty, row);
+                horizontal(ty, row, &mut scratch);
             }
         }
     }
     #[cfg(target_arch = "wasm32")]
-    for (ty, row) in tmp.chunks_mut(ow * ch).enumerate() {
-        horizontal(ty, row);
+    {
+        let mut scratch = vec![0.0f32; padded_w * ch];
+        for (ty, row) in tmp.chunks_mut(ow * ch).enumerate() {
+            horizontal(ty, row, &mut scratch);
+        }
     }
     let mut out = vec![0.0f32; ow * oh * ch];
     let vertical = |oy: usize, row: &mut [f32]| {
@@ -332,50 +345,61 @@ mod tests {
         let k: Vec<f32> = (-r..=r).map(|i| (-((i * i) as f32) / (2.0 * sigma * sigma)).exp()).collect();
         let ks: f32 = k.iter().sum();
         let k: Vec<f32> = k.into_iter().map(|v| v / ks).collect();
-        for win in [(20, 20, 40, 40), (5, 5, 85, 65)] {
-            let (x0, y0, x1, y1) = win;
-            let (ow, oh) = (x1 - x0, y1 - y0);
-            let get = |x: i32, y: i32| {
-                let (xx, yy) = (x.clamp(0, w as i32 - 1) as usize, y.clamp(0, h as i32 - 1) as usize);
-                let i = (yy * w + xx) * ch;
-                let mut p = data[i..i + ch].to_vec();
-                let av = p[3];
-                for v in p.iter_mut().take(3) {
-                    *v *= av;
-                }
-                p
-            };
-            let th = oh + 2 * r as usize;
-            let mut tmp = vec![0.0f32; ow * th * ch];
-            for ty in 0..th {
-                let y = y0 as i32 + ty as i32 - r;
-                for ox in 0..ow {
-                    let o = (ty * ow + ox) * ch;
-                    for (i, kv) in k.iter().enumerate() {
-                        let p = get(x0 as i32 + ox as i32 + i as i32 - r, y);
-                        for c in 0..ch {
-                            tmp[o + c] += p[c] * kv;
+        for alpha in [None, Some(3)] {
+            for win in [(20, 20, 40, 40), (5, 5, 85, 65)] {
+                let (x0, y0, x1, y1) = win;
+                let (ow, oh) = (x1 - x0, y1 - y0);
+                let get = |x: i32, y: i32| {
+                    let (xx, yy) = (x.clamp(0, w as i32 - 1) as usize, y.clamp(0, h as i32 - 1) as usize);
+                    let i = (yy * w + xx) * ch;
+                    let mut p = data[i..i + ch].to_vec();
+                    if let Some(a) = alpha {
+                        let av = p[a];
+                        for (c, v) in p.iter_mut().enumerate() {
+                            if c != a {
+                                *v *= av;
+                            }
+                        }
+                    }
+                    p
+                };
+                let th = oh + 2 * r as usize;
+                let mut tmp = vec![0.0f32; ow * th * ch];
+                for ty in 0..th {
+                    let y = y0 as i32 + ty as i32 - r;
+                    for ox in 0..ow {
+                        let o = (ty * ow + ox) * ch;
+                        for (i, kv) in k.iter().enumerate() {
+                            let p = get(x0 as i32 + ox as i32 + i as i32 - r, y);
+                            for c in 0..ch {
+                                tmp[o + c] += p[c] * kv;
+                            }
                         }
                     }
                 }
-            }
-            let mut out = vec![0.0f32; ow * oh * ch];
-            for oy in 0..oh {
-                for ox in 0..ow {
-                    let o = (oy * ow + ox) * ch;
-                    for (i, kv) in k.iter().enumerate() {
-                        let s = ((oy + i) * ow + ox) * ch;
-                        for c in 0..ch {
-                            out[o + c] += tmp[s + c] * kv;
+                let mut out = vec![0.0f32; ow * oh * ch];
+                for oy in 0..oh {
+                    for ox in 0..ow {
+                        let o = (oy * ow + ox) * ch;
+                        for (i, kv) in k.iter().enumerate() {
+                            let s = ((oy + i) * ow + ox) * ch;
+                            for c in 0..ch {
+                                out[o + c] += tmp[s + c] * kv;
+                            }
+                        }
+                        if let Some(a) = alpha {
+                            let av = out[o + a];
+                            let src = ((y0 + oy) * w + x0 + ox) * ch;
+                            for c in 0..ch {
+                                if c != a {
+                                    out[o + c] = if av > 1e-6 { out[o + c] / av } else { data[src + c] };
+                                }
+                            }
                         }
                     }
-                    let av = out[o + 3];
-                    for c in 0..3 {
-                        out[o + c] = if av > 1e-6 { out[o + c] / av } else { data[((y0 + oy) * w + x0 + ox) * ch + c] };
-                    }
                 }
+                assert_eq!(local_blur(&data, w, h, ch, alpha, win, sigma), out);
             }
-            assert_eq!(local_blur(&data, w, h, ch, Some(3), win, sigma), out);
         }
     }
 
