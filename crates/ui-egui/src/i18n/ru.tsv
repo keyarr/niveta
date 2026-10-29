@@ -1452,7 +1452,9 @@
 	Commit Perspective Warp ({key})	Принять перспективную деформацию ({key})
 	Commit Puppet Warp ({key})	Принять кукольную деформацию ({key})
 	Commit any current edits ({key})	Принять все текущие правки ({key})
+	Commit current crop operation  ({key})	Применить текущее кадрирование  ({key})
 	Commit transform ({key})	Принять трансформацию ({key})
+	Cancel current crop operation  (Esc)	Отменить текущее кадрирование  (Esc)
 	Commit warp ({key})	Принять деформацию ({key})
 	Cancel any current edits (Esc)	Отменить все текущие правки (Esc)
 	Cancel transform (Esc)	Отменить трансформацию (Esc)
@@ -2556,6 +2558,10 @@ fontWeight	Italic	Курсив
 	Transparency Threshold	Порог прозрачности
 	Opacity Threshold	Порог непрозрачности
 	Up	Вверх
+	Camera	Камера
+	Pictures	Изображения
+	Download	Загрузки
+	DCIM	DCIM
 	Empty folder	Пустая папка
 	First {n} entries shown	Показаны первые {n} записей
 	Niveta needs access to the files on this device to open them. Allow photo access here, or open Settings for every file kind (PSD, .pcraft).	Niveta нужен доступ к файлам на этом устройстве, чтобы открывать их. Разрешите здесь доступ к фото или откройте Настройки для остальных файлов (PSD, .pcraft).

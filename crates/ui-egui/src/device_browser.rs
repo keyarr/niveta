@@ -29,6 +29,8 @@ use crate::NivetaApp;
 /// Shared-storage candidates, first readable wins as the start folder.
 const ROOTS: &[&str] =
     &["/sdcard/Download", "/sdcard/DCIM", "/sdcard/Pictures", "/sdcard/Documents", "/sdcard", "/storage/emulated/0/Download", "/storage/emulated/0"];
+const QUICK_ACCESS: &[(&str, &str)] = &[("Camera", "DCIM/Camera"), ("Pictures", "Pictures"), ("Download", "Download"), ("DCIM", "DCIM")];
+const STORAGE_ROOTS: &[&str] = &["/sdcard", "/storage/emulated/0"];
 
 /// One folder's worth of rows; the rest hides behind a note rather than a
 /// stall on giant folders.
@@ -95,6 +97,7 @@ struct Entry {
     path: PathBuf,
     is_dir: bool,
     size: Option<u64>,
+    modified: Option<std::time::SystemTime>,
     /// Cache fingerprint (size + mtime): a thumbnail is reused only while both match.
     fingerprint: u64,
 }
@@ -143,6 +146,23 @@ fn is_supported(name: &str) -> bool {
     niveta_io::is_openable_file(name)
 }
 
+fn file_order(a: &Entry, b: &Entry) -> std::cmp::Ordering {
+    b.modified.is_some().cmp(&a.modified.is_some()).then_with(|| b.modified.cmp(&a.modified)).then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+}
+
+fn quick_access_dirs_in(roots: &[PathBuf]) -> Vec<(&'static str, PathBuf)> {
+    QUICK_ACCESS
+        .iter()
+        .filter_map(|(label, relative)| {
+            roots.iter().map(|root| root.join(relative)).find(|path| path.is_dir() && std::fs::read_dir(path).is_ok()).map(|path| (*label, path))
+        })
+        .collect()
+}
+
+fn quick_access_dirs() -> Vec<(&'static str, PathBuf)> {
+    quick_access_dirs_in(&STORAGE_ROOTS.iter().map(PathBuf::from).collect::<Vec<_>>())
+}
+
 fn list(dir: &Path) -> Result<Listing, String> {
     let rd = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let mut dirs = Vec::new();
@@ -170,7 +190,8 @@ fn list(dir: &Path) -> Result<Listing, String> {
         let meta = e.metadata().ok();
         let size = if is_dir { None } else { meta.as_ref().map(|m| m.len()) };
         let fingerprint = meta.as_ref().map(|m| fingerprint_of(m, size)).unwrap_or(0);
-        let entry = Entry { name, path: e.path(), is_dir, size, fingerprint };
+        let modified = meta.as_ref().and_then(|m| m.modified().ok());
+        let entry = Entry { name, path: e.path(), is_dir, size, modified, fingerprint };
         if is_dir {
             dirs.push(entry);
         } else {
@@ -179,7 +200,7 @@ fn list(dir: &Path) -> Result<Listing, String> {
     }
     let by_name = |a: &Entry, b: &Entry| a.name.to_lowercase().cmp(&b.name.to_lowercase());
     dirs.sort_by(by_name);
-    files.sort_by(by_name);
+    files.sort_by(file_order);
     Ok(Listing { dirs, files, truncated })
 }
 
@@ -271,7 +292,7 @@ pub fn show(app: &mut NivetaApp, ctx: &egui::Context) {
                 }
             });
         });
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             let up = b.dir.parent().filter(|p| !p.as_os_str().is_empty()).is_some();
             let mut go_up = false;
             ui.add_enabled_ui(up, |ui| {
@@ -280,8 +301,14 @@ pub fn show(app: &mut NivetaApp, ctx: &egui::Context) {
             if go_up && let Some(parent) = b.dir.parent().map(Path::to_path_buf) {
                 navigated_to = Some(parent);
             }
-            ui.label(egui::RichText::new(b.dir.display().to_string()).small().weak());
+            for (label, target) in quick_access_dirs() {
+                if ui.selectable_label(b.dir == target, tl!(label)).clicked() {
+                    navigated_to = Some(target);
+                }
+            }
         });
+        ui.label(egui::RichText::new(b.dir.display().to_string()).small().weak());
+
         if let Some(err) = b.error.as_deref() {
             ui.label(err);
         }
@@ -864,8 +891,33 @@ mod tests {
         let t = TempDir::new();
         let l = list(&t.dir).unwrap();
         assert_eq!(l.dirs.iter().map(|e| e.name.clone()).collect::<Vec<_>>(), ["sub"]);
-        assert_eq!(l.files.iter().map(|e| e.name.clone()).collect::<Vec<_>>(), ["a.png", "b.PSD"]);
+        assert_eq!(l.files.len(), 2);
+        assert!(l.files.iter().any(|e| e.name == "a.png"));
+        assert!(l.files.iter().any(|e| e.name == "b.PSD"));
         assert!(!l.truncated);
+    }
+
+    #[test]
+    fn listing_sorts_newest_files_first() {
+        let t = TempDir::new();
+        let old = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1);
+        let new = std::time::UNIX_EPOCH + std::time::Duration::from_secs(2);
+        let older = Entry { name: "old.png".into(), path: t.dir.join("old.png"), is_dir: false, size: None, modified: Some(old), fingerprint: 0 };
+        let newer = Entry { name: "new.png".into(), path: t.dir.join("new.png"), is_dir: false, size: None, modified: Some(new), fingerprint: 0 };
+        let unknown = Entry { name: "unknown.png".into(), path: t.dir.join("unknown.png"), is_dir: false, size: None, modified: None, fingerprint: 0 };
+        assert_eq!(file_order(&newer, &older), std::cmp::Ordering::Less);
+        assert_eq!(file_order(&older, &newer), std::cmp::Ordering::Greater);
+        assert_eq!(file_order(&newer, &unknown), std::cmp::Ordering::Less);
+        assert_eq!(file_order(&unknown, &newer), std::cmp::Ordering::Greater);
+    }
+
+    #[test]
+    fn quick_access_lists_only_existing_readable_directories() {
+        let t = TempDir::new();
+        std::fs::create_dir_all(t.dir.join("DCIM/Camera")).unwrap();
+        std::fs::create_dir_all(t.dir.join("Pictures")).unwrap();
+        let entries = quick_access_dirs_in(std::slice::from_ref(&t.dir));
+        assert_eq!(entries, [("Camera", t.dir.join("DCIM/Camera")), ("Pictures", t.dir.join("Pictures")), ("DCIM", t.dir.join("DCIM"))]);
     }
 
     #[test]
@@ -982,7 +1034,8 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let img = niveta_codecs::Image::from_u8(4, 4, niveta_codecs::ChannelLayout::Rgba, [255u8, 0, 0, 255].repeat(16)).unwrap();
-        std::fs::write(dir.join("red.png"), niveta_codecs::encode(&img, niveta_codecs::Format::Png, &niveta_codecs::EncodeOptions::default()).unwrap()).unwrap();
+        std::fs::write(dir.join("red.png"), niveta_codecs::encode(&img, niveta_codecs::Format::Png, &niveta_codecs::EncodeOptions::default()).unwrap())
+            .unwrap();
 
         let mut app = NivetaApp::new(niveta_engine::Session::new(), crate::Services::default());
         app.run("file.new", json!({"width": 32, "height": 32})).unwrap();
@@ -1034,8 +1087,11 @@ mod tests {
         );
         NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
         h.run_steps(6);
-        assert!(h.query_all_by_label_contains("img000").next().is_some(), "first row renders");
-        assert!(h.query_all_by_label_contains("img299").next().is_none(), "off-screen rows are virtualized away");
+        let listing = list(&dir).unwrap();
+        let first = listing.files.first().expect("files listed").name.clone();
+        let last = listing.files.last().expect("files listed").name.clone();
+        assert!(h.query_all_by_label_contains(&first).next().is_some(), "first row renders");
+        assert!(h.query_all_by_label_contains(&last).next().is_none(), "off-screen rows are virtualized away");
         assert!(h.state().ui.device_browser.is_some(), "modal stays open");
         let _ = std::fs::remove_dir_all(&dir);
     }
