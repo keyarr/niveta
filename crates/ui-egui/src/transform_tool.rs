@@ -1721,7 +1721,7 @@ pub fn mobile_options_bar(app: &mut NivetaApp, ui: &mut egui::Ui) {
             crate::icons::paint(ui, r, "rotate-cw", 13.0, tk.text_dim);
             resp.on_hover_text(tl!("Rotate"));
             let mut a = angle as f32;
-            if crate::widgets::value_field(ui, &mut a, -180.0..=180.0, "°", 56.0).changed() {
+            if crate::widgets::value_field(ui, &mut a, -180.0..=180.0, "°", 72.0).changed() {
                 rotate_about_pivot(app, (a as f64 - angle).to_radians());
             }
             let fresh = app.ui.transform.as_ref().map(readout).map(|(_, _, an, _)| an).unwrap_or(angle);
@@ -1830,7 +1830,7 @@ fn transform_fields(app: &mut NivetaApp, ui: &mut egui::Ui, t: &TransformSession
     let (r, resp) = ui.allocate_exact_size(vec2(18.0, 22.0), egui::Sense::hover());
     crate::icons::paint(ui, r, "rotate-cw", 13.0, tk.text_dim);
     resp.on_hover_text(tl!("Rotate"));
-    if crate::widgets::value_field(ui, &mut a, -180.0..=180.0, "°", 60.0).changed() {
+    if crate::widgets::value_field(ui, &mut a, -180.0..=180.0, "°", 72.0).changed() {
         rotate_about_pivot(app, (a as f64 - angle).to_radians());
     }
     // A drag slider for the same angle, so a finger can turn the layer

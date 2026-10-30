@@ -208,7 +208,7 @@ fn value_field_in(ui: &mut Ui, value: &mut f32, range: std::ops::RangeInclusive<
     let (lo, hi) = (*range.start(), *range.end());
     let (step, grid) = arrow_step(ui, slot.id, if fine { 0.01 } else { 1.0 });
     // new_child (not scope_builder): a scope would move the parent cursor back to the child rect.
-    let mut child = ui.new_child(egui::UiBuilder::new().max_rect(field));
+    let mut child = ui.new_child(egui::UiBuilder::new().max_rect(field).layout(egui::Layout::centered_and_justified(egui::Direction::RightToLeft)));
     let mut resp = {
         let ui = &mut child;
         {
@@ -218,11 +218,9 @@ fn value_field_in(ui: &mut Ui, value: &mut f32, range: std::ops::RangeInclusive<
             ui.style_mut().visuals.widgets.hovered.bg_stroke = Stroke::NONE;
             ui.style_mut().visuals.widgets.hovered.weak_bg_fill = Color32::TRANSPARENT;
             ui.style_mut().override_font_id = Some(theme::mono(12.0));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let layout = egui::Layout::centered_and_justified(ui.layout().main_dir());
-                ui.allocate_ui_with_layout(field.size(), layout, |ui| number_edit(ui, value, range, fine)).inner
-            })
-            .inner
+            ui.spacing_mut().button_padding = Vec2::ZERO;
+            ui.spacing_mut().interact_size = field.size();
+            number_edit(ui, value, range, fine)
         }
     };
     ui.data_mut(|d| d.insert_temp(slot.id, resp.id));
@@ -1257,6 +1255,38 @@ mod tests {
         h.run();
         let (v, ok) = *h.state();
         ok.unwrap_or(v)
+    }
+
+    #[test]
+    fn rotation_value_stays_inside_field() {
+        let ctx = egui::Context::default();
+        let width = 72.0;
+        for kind in crate::theme::ThemeKind::ALL {
+            crate::theme::apply(&ctx, kind);
+            for mut angle in [0.0, -180.0, 179.5, -179.5] {
+                let mut field = egui::Rect::NOTHING;
+                let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Rotation");
+                        let (response, rect) = super::value_field_in(ui, &mut angle, -180.0..=180.0, "°", width, 0.0);
+                        field = rect;
+                        assert!(rect.shrink2(egui::vec2(4.0, 2.0)).contains_rect(response.rect), "{kind:?}: {:?} outside {rect:?}", response.rect);
+                    });
+                });
+                output.textures_delta.clear();
+                let mut found = false;
+                for shape in output.shapes {
+                    if let egui::Shape::Text(text) = shape.shape {
+                        if text.galley.text() == super::fmt_num(f64::from(angle)) {
+                            found = true;
+                            let bounds = text.galley.rect.translate(text.pos.to_vec2());
+                            assert!(field.contains_rect(bounds), "{width}: text {bounds:?} outside {field:?}");
+                        }
+                    }
+                }
+                assert!(found, "rotation text was not painted");
+            }
+        }
     }
 
     /// Plain digits apply as they're typed; arithmetic doesn't report a change until it's committed.
