@@ -57,7 +57,7 @@ The other built-in ICC profiles and the generated LUT looks are produced by code
 
 | Path | Title | Author | Source | License |
 |---|---|---|---|---|
-| `docs/images/niveta-*.jpg` | PhotoCraft screenshots | PhotoCraft contributors (UI) | Rendered offscreen with the `snapshot` example | MIT OR Apache-2.0 (UI); the artwork in each is public domain, listed below |
+| `docs/images/niveta-*.jpg` | Niveta screenshots | Niveta contributors (UI) | Captured from the Niveta Android app | MIT OR Apache-2.0 (UI); the artwork in each is public domain, listed below |
 | `docs/images/preferences-apply-*.png` | Preferences before and after adding Apply (no artwork) | PhotoCraft contributors | PhotoCraft control-channel capture and offscreen `snapshot` example | MIT OR Apache-2.0 |
 
 Artwork shown in the screenshots (all public domain, via Wikimedia Commons; details in

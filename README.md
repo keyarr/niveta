@@ -8,7 +8,7 @@
 
 <p align="center">
   <img alt="100% Rust" src="https://img.shields.io/badge/100%25-Rust-b7410e?style=flat-square&logo=rust">
-  <img alt="Android arm64" src="https://img.shields.io/badge/Android-arm64-3ddc84?style=flat-square&logo=android&logoColor=white">
+  <img alt="Android arm32 and arm64" src="https://img.shields.io/badge/Android-arm32%20%2F%20arm64-3ddc84?style=flat-square&logo=android&logoColor=white">
   <img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-3a3a3a?style=flat-square">
   <img alt="Status: early alpha" src="https://img.shields.io/badge/status-early%20alpha-d69e2e?style=flat-square">
 </p>
@@ -181,12 +181,13 @@ Niveta reuses PhotoCraft's PSD test corpus (`photocraft-corpus`), alongside the 
 
 ## Downloads
 
-No builds are published yet. Niveta is in early alpha, and for now the way to run it is to build the APK yourself with `cargo xtask android build`. Release builds will be attached to the [releases page](https://github.com/keyarr/niveta/releases), with `<ver>` in the file names and a `SHA256SUMS.txt` checksum for every file.
+APK builds for ARM 32-bit and 64-bit are available on the [releases page](https://github.com/keyarr/niveta/releases), with `<ver>` in the file names and a `SHA256SUMS.txt` checksum for every file. The 32-bit build has not been tested. Niveta is in early alpha.
 
 ### Android
 
 | Build | File | Notes |
 |---|---|---|
+| APK, arm32 | `niveta-<ver>-android-arm32.apk` | Untested; `adb install` it or sideload from the file manager |
 | APK, arm64 | `niveta-<ver>-android-arm64.apk` | Signed; `adb install` it or sideload from the file manager |
 
 ## License and credits
