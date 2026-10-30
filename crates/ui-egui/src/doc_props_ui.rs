@@ -136,115 +136,139 @@ pub fn properties(app: &mut NivetaApp, ui: &mut egui::Ui) {
     widgets::hairline(ui);
     ui.add_space(2.0);
     let label_w = 44.0;
+    let canvas_header_top = ui.cursor().top();
     if section(ui, "canvas", tl!("Canvas")) {
-        let link_key = egui::Id::new("doc-props-link");
-        let linked = ui.data(|d| d.get_temp::<bool>(link_key)).unwrap_or(false);
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 4.0;
-            ui.vertical(|ui| {
-                ui.add_space(14.0);
-                if icons::button(ui, if linked { "link" } else { "unlink" }, 22.0, linked, tl!("Link width and height")).clicked() {
-                    ui.data_mut(|d| d.insert_temp(link_key, !linked));
+        let wide = ui.available_width() >= 360.0;
+        let size_controls = |ui: &mut egui::Ui, run: &mut Vec<(String, Value)>| {
+            let link_key = egui::Id::new("doc-props-link");
+            let linked = ui.data(|d| d.get_temp::<bool>(link_key)).unwrap_or(false);
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 4.0;
+                ui.vertical(|ui| {
+                    ui.add_space(14.0);
+                    if icons::button(ui, if linked { "link" } else { "unlink" }, 22.0, linked, tl!("Link width and height")).clicked() {
+                        ui.data_mut(|d| d.insert_temp(link_key, !linked));
+                    }
+                });
+                ui.vertical(|ui| {
+                    let fields = [("W", "w", w as f32), ("X", "x", 0.0), ("H", "h", h as f32), ("Y", "y", 0.0)];
+                    let fields_per_row = if wide { 1 } else { 2 };
+                    for row in fields.chunks(fields_per_row) {
+                        ui.horizontal(|ui| {
+                            for &(label, id, value) in row {
+                                field_label(ui, label, 18.0);
+                                if id == "x" || id == "y" {
+                                    dim_field(ui, "0 px");
+                                } else if let Some(v) = committed_field(ui, id, value, "px") {
+                                    let resize = if id == "w" {
+                                        canvas_resize_params((w, h), Some(v), None, linked)
+                                    } else {
+                                        canvas_resize_params((w, h), None, Some(v), linked)
+                                    };
+                                    run.extend(resize.map(|p| ("image.canvasSize".to_string(), p)));
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+            ui.horizontal(|ui| {
+                ui.add_space(4.0);
+                ui.spacing_mut().item_spacing.x = 2.0;
+                let portrait = h > w;
+                if icons::button(ui, "rectangle-vertical", 26.0, portrait, "Portrait").clicked() && !portrait && w != h {
+                    run.push(("image.canvasSize".into(), json!({"width": h, "height": w, "anchor": "center"})));
+                }
+                if icons::button(ui, "rectangle-horizontal", 26.0, !portrait, tl!("Landscape")).clicked() && portrait {
+                    run.push(("image.canvasSize".into(), json!({"width": h, "height": w, "anchor": "center"})));
                 }
             });
+            ui.add_space(2.0);
             ui.vertical(|ui| {
-                ui.horizontal(|ui| {
-                    field_label(ui, "W", 18.0);
-                    if let Some(v) = committed_field(ui, "w", w as f32, "px") {
-                        run.extend(canvas_resize_params((w, h), Some(v), None, linked).map(|p| ("image.canvasSize".to_string(), p)));
-                    }
-                    field_label(ui, "X", 22.0);
-                    dim_field(ui, "0 px");
-                });
-                ui.horizontal(|ui| {
-                    field_label(ui, "H", 18.0);
-                    if let Some(v) = committed_field(ui, "h", h as f32, "px") {
-                        run.extend(canvas_resize_params((w, h), None, Some(v), linked).map(|p| ("image.canvasSize".to_string(), p)));
-                    }
-                    field_label(ui, "Y", 22.0);
-                    dim_field(ui, "0 px");
-                });
+                ui.label(RichText::new(crate::i18n::fmt(tl!("Resolution: {dpi} pixels/inch"), &[("dpi", &widgets::fmt_num(dpi as f64))])).color(t.text));
             });
-        });
-        ui.horizontal(|ui| {
-            ui.add_space(label_w + 6.0);
-            ui.spacing_mut().item_spacing.x = 2.0;
-            let portrait = h > w;
-            if icons::button(ui, "rectangle-vertical", 26.0, portrait, "Portrait").clicked() && !portrait && w != h {
-                run.push(("image.canvasSize".into(), json!({"width": h, "height": w, "anchor": "center"})));
+        };
+        let format_controls = |ui: &mut egui::Ui, run: &mut Vec<(String, Value)>| {
+            if !wide {
+                ui.add_space(2.0);
             }
-            if icons::button(ui, "rectangle-horizontal", 26.0, !portrait, tl!("Landscape")).clicked() && portrait {
-                run.push(("image.canvasSize".into(), json!({"width": h, "height": w, "anchor": "center"})));
+            let narrow = ui.available_width() < 340.0;
+            if narrow {
+                ui.allocate_ui_with_layout(vec2(ui.available_width(), 22.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    ui.label(tl!("Mode"));
+                });
+                ui.horizontal(|ui| {
+                    let mut m = mode;
+                    let opts: Vec<(ColorMode, &str)> = MODES.iter().map(|(m, l, _)| (*m, *l)).collect();
+                    let dd_w = ui.available_width().min(150.0);
+                    if widgets::dropdown(ui, "doc-props-mode", &mut m, &opts, dd_w)
+                        && let Some((_, _, id)) = MODES.iter().find(|(x, _, _)| *x == m)
+                    {
+                        run.push(((*id).to_string(), Value::Null));
+                    }
+                });
+            } else {
+                ui.horizontal(|ui| {
+                    field_label(ui, tl!("Mode"), label_w);
+                    let mut m = mode;
+                    let opts: Vec<(ColorMode, &str)> = MODES.iter().map(|(m, l, _)| (*m, *l)).collect();
+                    if widgets::dropdown(ui, "doc-props-mode", &mut m, &opts, 150.0)
+                        && let Some((_, _, id)) = MODES.iter().find(|(x, _, _)| *x == m)
+                    {
+                        run.push(((*id).to_string(), Value::Null));
+                    }
+                });
             }
-        });
-        ui.add_space(2.0);
-        ui.horizontal(|ui| {
-            ui.add_space(label_w + 6.0);
-            ui.label(RichText::new(crate::i18n::fmt(tl!("Resolution: {dpi} pixels/inch"), &[("dpi", &widgets::fmt_num(dpi as f64))])).color(t.text));
-        });
-        ui.add_space(2.0);
-        // Narrow phones get one column: a wide label ("Preenchimento") beside a fixed
-        // 150pt dropdown ran past the sheet edge. Stacked, nothing clips left or right.
-        let narrow = ui.available_width() < 340.0;
-        if narrow {
-            field_label(ui, tl!("Mode"), label_w);
             ui.horizontal(|ui| {
-                ui.add_space(8.0);
-                let mut m = mode;
-                let opts: Vec<(ColorMode, &str)> = MODES.iter().map(|(m, l, _)| (*m, *l)).collect();
-                let dd_w = (ui.available_width() - 8.0).clamp(100.0, 200.0);
-                if widgets::dropdown(ui, "doc-props-mode", &mut m, &opts, dd_w)
-                    && let Some((_, _, id)) = MODES.iter().find(|(x, _, _)| *x == m)
+                if !narrow {
+                    ui.add_space(label_w + 8.0);
+                }
+                let mut d = depth;
+                let opts: Vec<(SampleType, &str, &str)> =
+                    DEPTHS.iter().map(|(d, l, _)| (*d, *l, if *d == SampleType::F32 { "Floating point" } else { "Integer" })).collect();
+                let dd_w = if narrow { ui.available_width().min(150.0) } else { 150.0 };
+                if widgets::dropdown_with_tooltips(ui, "doc-props-depth", &mut d, &opts, dd_w)
+                    && let Some((_, _, id)) = DEPTHS.iter().find(|(x, _, _)| *x == d)
                 {
                     run.push(((*id).to_string(), Value::Null));
                 }
             });
-        } else {
-            ui.horizontal(|ui| {
-                field_label(ui, tl!("Mode"), label_w);
-                let mut m = mode;
-                let opts: Vec<(ColorMode, &str)> = MODES.iter().map(|(m, l, _)| (*m, *l)).collect();
-                if widgets::dropdown(ui, "doc-props-mode", &mut m, &opts, 150.0)
-                    && let Some((_, _, id)) = MODES.iter().find(|(x, _, _)| *x == m)
-                {
-                    run.push(((*id).to_string(), Value::Null));
-                }
-            });
-        }
-        ui.horizontal(|ui| {
-            ui.add_space(label_w + 8.0);
-            let mut d = depth;
-            let opts: Vec<(SampleType, &str, &str)> =
-                DEPTHS.iter().map(|(d, l, _)| (*d, *l, if *d == SampleType::F32 { "Floating point" } else { "Integer" })).collect();
-            if widgets::dropdown_with_tooltips(ui, "doc-props-depth", &mut d, &opts, 150.0)
-                && let Some((_, _, id)) = DEPTHS.iter().find(|(x, _, _)| *x == d)
-            {
-                run.push(((*id).to_string(), Value::Null));
+            if narrow {
+                ui.label(tl!("Fill"));
+                ui.horizontal(|ui| {
+                    let (r, _) = ui.allocate_exact_size(vec2(22.0, 22.0), Sense::hover());
+                    ui.painter().rect_stroke(r, 0.0, Stroke::new(1.0, t.field_border), StrokeKind::Inside);
+                    ui.add_enabled_ui(!has_bg, |ui| {
+                        let mut f = 0u8;
+                        let dd_w = ui.available_width().min(150.0);
+                        widgets::dropdown(ui, "doc-props-fill", &mut f, &[(0u8, tl!("Background Color"))], dd_w);
+                    });
+                });
+            } else {
+                ui.horizontal(|ui| {
+                    field_label(ui, tl!("Fill"), label_w);
+                    let (r, _) = ui.allocate_exact_size(vec2(22.0, 22.0), Sense::hover());
+                    ui.painter().rect_stroke(r, 0.0, Stroke::new(1.0, t.field_border), StrokeKind::Inside);
+                    // The canvas fill is only editable for documents without a Background layer.
+                    ui.add_enabled_ui(!has_bg, |ui| {
+                        let mut f = 0u8;
+                        widgets::dropdown(ui, "doc-props-fill", &mut f, &[(0u8, tl!("Background Color"))], 124.0);
+                    });
+                });
             }
-        });
-        if narrow {
-            field_label(ui, tl!("Fill"), label_w);
-            ui.horizontal(|ui| {
-                ui.add_space(8.0);
-                let (r, _) = ui.allocate_exact_size(vec2(22.0, 22.0), Sense::hover());
-                ui.painter().rect_stroke(r, 0.0, Stroke::new(1.0, t.field_border), StrokeKind::Inside);
-                ui.add_enabled_ui(!has_bg, |ui| {
-                    let mut f = 0u8;
-                    let dd_w = (ui.available_width() - 30.0).clamp(100.0, 200.0);
-                    widgets::dropdown(ui, "doc-props-fill", &mut f, &[(0u8, tl!("Background Color"))], dd_w);
+        };
+        if wide {
+            ui.columns(2, |columns| {
+                size_controls(&mut columns[0], &mut run);
+                let mut rect = columns[1].available_rect_before_wrap();
+                rect.min.y = canvas_header_top;
+                columns[1].scope_builder(egui::UiBuilder::new().max_rect(rect), |ui| {
+                    format_controls(ui, &mut run);
                 });
             });
         } else {
-            ui.horizontal(|ui| {
-                field_label(ui, tl!("Fill"), label_w);
-                let (r, _) = ui.allocate_exact_size(vec2(22.0, 22.0), Sense::hover());
-                ui.painter().rect_stroke(r, 0.0, Stroke::new(1.0, t.field_border), StrokeKind::Inside);
-                // The canvas fill is only editable for documents without a Background layer.
-                ui.add_enabled_ui(!has_bg, |ui| {
-                    let mut f = 0u8;
-                    widgets::dropdown(ui, "doc-props-fill", &mut f, &[(0u8, tl!("Background Color"))], 124.0);
-                });
-            });
+            size_controls(ui, &mut run);
+            format_controls(ui, &mut run);
         }
         ui.add_space(4.0);
     }
