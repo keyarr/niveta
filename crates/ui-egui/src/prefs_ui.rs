@@ -906,9 +906,14 @@ fn prefs_body(ui: &mut egui::Ui, f: &mut Map<String, Value>) {
     let mut values = f.get("values").cloned().unwrap_or(Value::Null);
     // The dialog follows the language being edited, so a change shows before OK.
     let lang = crate::i18n::Lang::from_pref(values.pointer("/interface/language").and_then(Value::as_str).unwrap_or("auto"));
+    // During the egui sizing pass available_width may be unbounded; the viewport is stable.
+    let viewport_width = ui.ctx().content_rect().width();
+    let available_width = ui.available_width().min(viewport_width);
     // Phones (~360 pt wide) can't fit the desktop's 170 pt list beside the 540 pt settings:
     // the sections scroll across the top and the settings use the full width below.
-    if ui.available_width() < 600.0 {
+    if available_width < 600.0 {
+        let content_width = (viewport_width - 32.0).max(0.0);
+        ui.set_width(content_width);
         egui::ScrollArea::horizontal()
             .id_salt("prefs-sections")
             .auto_shrink([true, true])
@@ -927,7 +932,7 @@ fn prefs_body(ui: &mut egui::Ui, f: &mut Map<String, Value>) {
         crate::widgets::hairline(ui);
         ui.add_space(4.0);
         let room = (ui.ctx().content_rect().height() - 320.0).clamp(200.0, 390.0);
-        prefs_section_content(ui, f, &mut values, &section, lang, room, None);
+        prefs_section_content(ui, f, &mut values, &section, lang, room, Some(content_width));
         f.insert("section".into(), json!(section));
         f.insert("values".into(), values);
         return;
@@ -995,7 +1000,7 @@ fn prefs_section_content(
     // Measured here: inside the scroll area the width is unbounded while sizing, so a check
     // there would always see the desktop width and lay out two overflowing columns.
     let narrow = ui.available_width() < 500.0;
-    egui::ScrollArea::vertical().max_height(max_height).id_salt("prefs-scroll").show(ui, |ui| {
+    egui::ScrollArea::vertical().auto_shrink([false, true]).max_height(max_height).id_salt("prefs-scroll").show(ui, |ui| {
         let order: Vec<String> = f.get("__order").and_then(|o| o.get(section)).and_then(|v| serde_json::from_value(v.clone()).ok()).unwrap_or_default();
         if !has_visible_fields(values, section) {
             ui.add_space(4.0);
@@ -1023,7 +1028,7 @@ fn gpu_status_rows(ui: &mut egui::Ui, info: Option<&Value>, obj: &mut Map<String
     ui.add_space(10.0);
     ui.label(RichText::new(tl!("Graphics")).font(crate::theme::semibold(12.5)).color(t.text));
     for line in info.and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str) {
-        ui.label(RichText::new(line).color(t.text_dim));
+        ui.add(egui::Label::new(RichText::new(line).color(t.text_dim)).wrap());
     }
     ui.add_space(4.0);
     ui.label(RichText::new(tl!("Applies at next launch.")).color(t.text_faint));
@@ -1032,10 +1037,11 @@ fn gpu_status_rows(ui: &mut egui::Ui, info: Option<&Value>, obj: &mut Map<String
         let options = prefs::choices("performance.gpuBackend").unwrap_or(&[]);
         let labels: Vec<String> = options.iter().map(|o| choice_label(o)).collect();
         let pairs: Vec<(String, &str)> = options.iter().map(|o| o.to_string()).zip(labels.iter().map(String::as_str)).collect();
+        let dropdown_width = if narrow { ui.available_width() } else { 220.0 };
         // The label beside its dropdown doesn't fit the phone layout: stack them.
         if narrow {
             ui.label(tl!("GPU Backend"));
-            crate::widgets::dropdown(ui, "graphics-backend", &mut current, &pairs, 220.0);
+            crate::widgets::dropdown(ui, "graphics-backend", &mut current, &pairs, dropdown_width);
         } else {
             ui.horizontal(|ui| {
                 ui.label(tl!("GPU Backend"));
@@ -1063,7 +1069,7 @@ fn rendering_mode_row(ui: &mut egui::Ui, obj: &mut Map<String, Value>, narrow: b
         ui.horizontal(|ui| {
             ui.label(tl!("Rendering Mode"));
             let previous = current.clone();
-            crate::widgets::dropdown(ui, "rendering-mode", &mut current, &pairs, 240.0);
+            crate::widgets::dropdown(ui, "rendering-mode", &mut current, &pairs, ui.available_width());
             if current != previous {
                 obj.insert("renderingMode".into(), json!(current));
                 obj.insert("useGpu".into(), json!(current != "cpu"));
@@ -1152,7 +1158,8 @@ fn section_fields(ui: &mut egui::Ui, section: &str, obj: &mut Map<String, Value>
                     let mut pairs: Vec<(String, &str)> = vec![("auto".into(), tl!("Auto"))];
                     pairs.extend(crate::i18n::Lang::all().map(|l| (l.code().to_string(), l.name())));
                     let mut cur = s.clone();
-                    crate::widgets::dropdown(ui, &format!("pref-{path}"), &mut cur, &pairs, 220.0);
+                    let width = if narrow { ui.available_width() } else { 220.0 };
+                    crate::widgets::dropdown(ui, &format!("pref-{path}"), &mut cur, &pairs, width);
                     obj.insert(k, json!(cur));
                 }
                 Value::String(s) if prefs::choices(&path).is_some() => {
@@ -1162,7 +1169,8 @@ fn section_fields(ui: &mut egui::Ui, section: &str, obj: &mut Map<String, Value>
                     let labels: Vec<String> = opts.iter().map(|o| choice_label(o)).collect();
                     let pairs: Vec<(String, &str)> = opts.iter().map(|o| o.to_string()).zip(labels.iter().map(String::as_str)).collect();
                     let mut cur = s.clone();
-                    crate::widgets::dropdown(ui, &format!("pref-{path}"), &mut cur, &pairs, 220.0);
+                    let width = if narrow { ui.available_width() } else { 220.0 };
+                    crate::widgets::dropdown(ui, &format!("pref-{path}"), &mut cur, &pairs, width);
                     obj.insert(k, json!(cur));
                 }
                 Value::String(s) if prefs::is_color(&path) => {
@@ -1181,7 +1189,8 @@ fn section_fields(ui: &mut egui::Ui, section: &str, obj: &mut Map<String, Value>
                     ui.label(RichText::new(tl!(&label)).color(t.text_dim));
                     end_label(ui);
                     let mut s = s.clone();
-                    ui.add(egui::TextEdit::singleline(&mut s).desired_width(260.0));
+                    let width = if narrow { ui.available_width() } else { 260.0 };
+                    ui.add(egui::TextEdit::singleline(&mut s).desired_width(width));
                     obj.insert(k, json!(s));
                 }
                 Value::Number(n) => {
@@ -1208,7 +1217,8 @@ fn section_fields(ui: &mut egui::Ui, section: &str, obj: &mut Map<String, Value>
                                 let mut on = d.get("enabled").and_then(Value::as_bool).unwrap_or(false);
                                 let mut path = d.get("path").and_then(Value::as_str).unwrap_or("").to_string();
                                 crate::widgets::checkbox(ui, &mut on, "");
-                                ui.add(egui::TextEdit::singleline(&mut path).desired_width(240.0));
+                                let width = if narrow { (ui.available_width() - ui.spacing().item_spacing.x).max(0.0) } else { 240.0 };
+                                ui.add(egui::TextEdit::singleline(&mut path).desired_width(width));
                                 *d = json!({"enabled": on, "path": path});
                             });
                         }
@@ -2165,28 +2175,27 @@ mod tests {
     #[test]
     fn narrow_preferences_dialog_fits_the_window() {
         use egui_kittest::{Harness, kittest::Queryable};
-        let app = NivetaApp::new(niveta_engine::Session::new(), crate::Services::default());
-        let size = egui::vec2(360.0, 800.0);
-        let mut h = Harness::builder().with_size(size).build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), app);
-        NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
-        // Phone widths (360 pt): the dialog fits the window instead of showing the desktop's
-        // clipped 780 pt layout with the section list beside the settings.
-        let id = open_preferences(h.state_mut(), "general");
-        h.run_steps(4);
-        for label in ["Preferences", "OK", "Cancel", "Apply", "Reset Section"] {
-            let r = h.get_by_label(label).rect();
-            assert!(r.left() >= 0.0 && r.right() <= size.x && r.top() >= 0.0 && r.bottom() <= size.y, "{label} at {r:?} outside {size:?}");
+        for width in [320.0, 360.0, 412.0, 500.0, 599.0, 600.0, 601.0] {
+            let size = egui::vec2(width, 800.0);
+            let app = NivetaApp::new(niveta_engine::Session::new(), crate::Services::default());
+            let mut h = Harness::builder().with_size(size).build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), app);
+            NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+            let id = open_preferences(h.state_mut(), "performance");
+            h.run_steps(4);
+            for label in ["Preferences", "OK", "Cancel", "Apply"] {
+                let r = h.get_by_label(label).rect();
+                assert!(r.left() >= 0.0 && r.right() <= size.x && r.top() >= 0.0 && r.bottom() <= size.y, "{label} at {r:?} outside {size:?}");
+            }
+            let rendering = h.get_by_label("Rendering Mode").rect();
+            assert!(rendering.left() >= 0.0 && rendering.right() <= size.x, "Rendering Mode at {rendering:?} outside {size:?}");
+            h.get_by_label("Advanced").click();
+            h.run_steps(4);
+            let backend = h.query_by_role(egui::accesskit::Role::ComboBox).unwrap().rect();
+            assert!(backend.left() >= 0.0 && backend.right() <= size.x, "GPU Backend at {backend:?} outside {size:?}");
+            h.get_by_label("Cancel").click();
+            h.run_steps(3);
+            assert!(h.state().ui.dialogs.iter().all(|d| d.id != id));
         }
-        // Another section (with its own controls) stays inside too.
-        h.state_mut().ui.dialog_mut(id).unwrap().fields.insert("section".into(), json!("performance"));
-        h.run_steps(4);
-        for label in ["Rendering Mode", "OK", "Cancel"] {
-            let r = h.get_by_label(label).rect();
-            assert!(r.left() >= 0.0 && r.right() <= size.x && r.top() >= 0.0 && r.bottom() <= size.y, "{label} at {r:?} outside {size:?}");
-        }
-        h.get_by_label("Cancel").click();
-        h.run_steps(3);
-        assert!(h.state().ui.dialogs.iter().all(|d| d.id != id));
     }
 
     #[test]
