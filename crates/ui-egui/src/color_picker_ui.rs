@@ -301,8 +301,44 @@ pub(crate) const CONTENT_WIDTH: f32 = 624.0;
 
 /// Draw the picker and its top-right actions. `Some(true)` confirms, `Some(false)` cancels.
 pub fn body(ui: &mut egui::Ui, f: &mut Map<String, Value>) -> Option<bool> {
-    ui.set_width(CONTENT_WIDTH);
+    let width = ui.available_width().min(CONTENT_WIDTH);
+    ui.set_width(width);
     let mut outcome = None;
+    if width < CONTENT_WIDTH {
+        egui::ScrollArea::vertical().max_height((ui.ctx().content_rect().height() - 100.0).max(100.0)).show(ui, |ui| {
+            ui.horizontal_top(|ui| {
+                ui.spacing_mut().item_spacing.x = 12.0;
+                color_field(ui, f);
+            });
+            ui.add_space(10.0);
+            let mut web = f.get("__webOnly").and_then(Value::as_bool).unwrap_or(false);
+            if widgets::checkbox(ui, &mut web, tl!("Only Web Colors")).changed() {
+                f.insert("__webOnly".into(), json!(web));
+                set_rgb(f, current(f).rgb, Keep::Nothing);
+            }
+            if let Some(rgb) = crate::screen_picker::button(ui, ui.id().with("screen-color")) {
+                set_rgb(f, rgb, Keep::Nothing);
+            }
+            ui.horizontal_top(|ui| {
+                swatches(ui, f);
+                ui.vertical(|ui| {
+                    let button_width = ui.available_width().max(168.0);
+                    if widgets::primary_button(ui, tl!("OK"), button_width).clicked() {
+                        outcome = Some(true);
+                    }
+                    if widgets::secondary_button(ui, tl!("Cancel"), button_width).clicked() {
+                        outcome = Some(false);
+                    }
+                    if widgets::secondary_button(ui, tl!("Add to Swatches"), button_width).clicked() {
+                        f.insert("__addSwatch".into(), json!(true));
+                    }
+                });
+            });
+            let mode = f.get("__mode").and_then(Value::as_str).unwrap_or("h").to_string();
+            fields(ui, f, &mode, &current(f));
+        });
+        return outcome;
+    }
     ui.horizontal_top(|ui| {
         ui.spacing_mut().item_spacing.x = 20.0;
         ui.vertical(|ui| {
@@ -357,7 +393,8 @@ fn color_field(ui: &mut egui::Ui, f: &mut Map<String, Value>) {
     let (rgb, hsv, lab) = (now.rgb, now.hsv, now.lab);
     let (fx, fy, fz) = locate(&mode, hsv, rgb, lab);
     // Colour field.
-    let (field, resp) = ui.allocate_exact_size(vec2(280.0, 280.0), Sense::click_and_drag());
+    let size = (ui.available_width() - 32.0).clamp(1.0, 280.0);
+    let (field, resp) = ui.allocate_exact_size(vec2(size, size), Sense::click_and_drag());
     ui.painter().add(grid_mesh(field, 32, |x, y| field_color(&mode, fz, x, y)));
     ui.painter().rect_stroke(field, 0.0, Stroke::new(1.0, t.field_border), StrokeKind::Outside);
     let marker = pos2(field.left() + fx * field.width(), field.top() + fy * field.height());
@@ -374,7 +411,7 @@ fn color_field(ui: &mut egui::Ui, f: &mut Map<String, Value>) {
         set_rgb(f, c, keep);
     }
     // Component slider (hue runs 360° at the top to 0° at the bottom, like Photoshop).
-    let (strip, sresp) = ui.allocate_exact_size(vec2(20.0, 280.0), Sense::click_and_drag());
+    let (strip, sresp) = ui.allocate_exact_size(vec2(20.0, size), Sense::click_and_drag());
     ui.painter().add(grid_mesh(strip, 32, |_, y| slider_color(&mode, 1.0 - y, hsv, rgb, lab)));
     let sy = strip.top() + (1.0 - fz) * strip.height();
     for (x, dir) in [(strip.left() - 1.0, 1.0f32), (strip.right() + 1.0, -1.0)] {
@@ -702,6 +739,28 @@ mod tests {
         assert!(black.right() - web.left() < 600.0);
         let hex = h.get_by_role(Role::TextInput).rect();
         assert!(hex.left() < lightness.left() && hex.top() > inputs[5].bottom());
+    }
+
+    #[test]
+    fn narrow_width_stacks_the_sections_and_shrinks_the_square_field() {
+        let mut f = Map::new();
+        f.insert("color".into(), json!("#336699"));
+        let mut h = Harness::builder().with_size(vec2(240.0, 800.0)).build_ui_state(
+            |ui, f: &mut Map<String, Value>| {
+                if ui.ctx().fonts(|fonts| fonts.families().contains(&egui::FontFamily::Name("medium".into()))) {
+                    body(ui, f);
+                }
+            },
+            f,
+        );
+        NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+        h.run_steps(4);
+        let web = h.get_by_label("Only Web Colors").rect();
+        let ok = h.get_by_label("OK").rect();
+        let hue = h.query_all_by_role(Role::SpinButton).next().unwrap().rect();
+        assert!(web.top() > 200.0 && web.top() < 280.0, "the square shrinks below 280 pt: {web:?}");
+        assert!(ok.top() > web.bottom(), "actions follow the color field: {ok:?} {web:?}");
+        assert!(hue.top() > ok.bottom(), "components follow the actions: {hue:?} {ok:?}");
     }
 
     #[test]
