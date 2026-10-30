@@ -61,6 +61,10 @@ fn map_fill(a: &Affine, f: &mut Fill) {
     }
 }
 
+pub(crate) fn transform_fill_geometry(f: &mut Fill, a: &Affine) {
+    map_fill(a, f);
+}
+
 /// Rebuilds a type layer's PSD `TySh` block for its current transform, keeping its pixels.
 fn retag_text(dpi: f32, t: &mut TextLayer) {
     if t.psd_raw.is_none() {

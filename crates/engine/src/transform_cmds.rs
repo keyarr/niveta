@@ -2,7 +2,7 @@
 
 use niveta_algo::transform::{Homography, Interp, warp_surface};
 use niveta_color::PixelFormat;
-use niveta_doc::{Document, Layer, LayerContent, LayerId, Locks};
+use niveta_doc::{Document, Fill, Layer, LayerContent, LayerId, Locks};
 use niveta_geom::{Affine, Rect};
 use niveta_raster::Surface;
 use serde_json::{Value, json};
@@ -23,6 +23,7 @@ fn bad(msg: impl Into<String>) -> EngineError {
 pub fn transform_bounds(doc: &Document, layer: &Layer) -> Rect {
     let content = match &layer.content {
         LayerContent::Group(g) => g.children.iter().map(|l| transform_bounds(doc, l)).fold(Rect::EMPTY, |a, b| a.union(&b)),
+        LayerContent::Fill(Fill::Gradient { .. }) => doc.bounds(),
         _ => layer.surface().map_or(Rect::EMPTY, niveta_compose::bounds::content_bounds),
     };
     let content = if content.is_empty() { layer.mask.as_ref().map_or(Rect::EMPTY, |m| niveta_compose::bounds::content_bounds(&m.surface)) } else { content };
@@ -180,6 +181,13 @@ pub(crate) fn transform_layer(doc_sel: Option<&Surface>, group: Locks, l: &mut L
     // mask (#205). Groups, type, shapes and smart objects move whole.
     let mask_sel = doc_sel.filter(|_| !matches!(l.content, LayerContent::Group(_) | LayerContent::Text(_) | LayerContent::Shape(_) | LayerContent::Smart(_)));
     match &mut l.content {
+        LayerContent::Fill(f @ Fill::Gradient { .. }) => {
+            let Some(a) = affine else {
+                return Err(EngineError::Other("Distort and Perspective are not supported for gradient fills; use Move, Scale, Rotate, or Flip".into()));
+            };
+            crate::canvas_geom::transform_fill_geometry(f, &a);
+            l.fill_cache = None;
+        }
         LayerContent::Group(g) => {
             for c in g.children.iter_mut() {
                 transform_layer(None, locks, c, h, affine, interp)?;
