@@ -106,8 +106,9 @@ pub fn show(app: &mut NivetaApp, ctx: &egui::Context) {
         };
         let color_picker = crate::color_picker_ui::owns(&fields);
         let mut modal = egui::Modal::new(id).area(area).backdrop_color(egui::Color32::TRANSPARENT);
+        const PICKER_MARGIN: i8 = 16;
         if color_picker {
-            modal = modal.frame(egui::Frame::popup(&ctx.global_style()).inner_margin(16));
+            modal = modal.frame(egui::Frame::popup(&ctx.global_style()).inner_margin(PICKER_MARGIN).stroke(egui::Stroke::NONE));
         }
         // Photoshop doesn't dim the window behind dialogs: previews must be judged at true contrast.
         let modal = modal.show(ctx, |ui| {
@@ -120,7 +121,9 @@ pub fn show(app: &mut NivetaApp, ctx: &egui::Context) {
             let wide = crate::prefs_ui::width(&d.fields);
             // The About window: room for the contributor table, the same width on every tab.
             let about_tabs = d.kind == DialogKind::About && d.fields.get("systemInfo").and_then(Value::as_bool) != Some(true);
-            if d.kind == DialogKind::NewDocument {
+            if color_picker {
+                ui.set_width((ctx.content_rect().width() - 2.0 * f32::from(PICKER_MARGIN)).clamp(0.0, crate::color_picker_ui::CONTENT_WIDTH));
+            } else if d.kind == DialogKind::NewDocument {
                 ui.set_min_width(narrow_max.min(800.0));
             } else {
                 let mut min_w = 380.0;
@@ -134,24 +137,23 @@ pub fn show(app: &mut NivetaApp, ctx: &egui::Context) {
                 // buttons off-screen, leaving a desktop-looking clipped dialog.
                 ui.set_min_width(min_w.min(narrow_max));
             }
-            ui.set_max_width(
-                wide.unwrap_or(if d.kind == DialogKind::NewDocument {
-                    narrow_max
-                } else if about_tabs {
-                    700.0
-                } else if d.kind == DialogKind::LayerStyle || d.fields.contains_key("__export") || crate::color_picker_ui::owns(&d.fields) {
-                    600.0
-                } else {
-                    440.0
-                })
-                .min(narrow_max),
-            );
+            if !color_picker {
+                ui.set_max_width(
+                    wide.unwrap_or(if d.kind == DialogKind::NewDocument {
+                        narrow_max
+                    } else if about_tabs {
+                        700.0
+                    } else if d.kind == DialogKind::LayerStyle || d.fields.contains_key("__export") || crate::color_picker_ui::owns(&d.fields) {
+                        600.0
+                    } else {
+                        440.0
+                    })
+                    .min(narrow_max),
+                );
+            }
             if let Some(w) = crate::file_ui::dialog_width(&d.fields) {
                 ui.set_min_width(w.min(narrow_max));
                 ui.set_max_width(w.min(narrow_max));
-            }
-            if color_picker {
-                ui.set_width(crate::color_picker_ui::CONTENT_WIDTH);
             }
             let label = egui::Label::new(egui::RichText::new(&title).font(crate::theme::semibold(15.0))).selectable(false);
             let t = if crate::color_picker_ui::owns(&fields) { ui.add_sized(egui::vec2(ui.available_width(), 22.0), label).rect } else { ui.add(label).rect };
@@ -522,6 +524,48 @@ mod tests {
             h.run_steps(1);
             assert!(free_pointer_over(&h.ctx, egui::Rect::from_min_size(egui::Pos2::ZERO, size)).is_none());
         }
+    }
+
+    #[test]
+    fn type_color_picker_fits_a_phone_viewport() {
+        use egui_kittest::{Harness, kittest::Queryable};
+
+        let size = egui::vec2(360.0, 800.0);
+        let app = NivetaApp::new(niveta_engine::Session::new(), crate::Services::default());
+        let mut h = Harness::builder().with_size(size).build_ui_state(|ui, app| show(app, ui.ctx()), app);
+        NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+        crate::type_tool::open_color_picker(h.state_mut(), [0.5, 0.3, 0.2]);
+        h.run_steps(4);
+        let frame = rects(&h.ctx)[0];
+        let title = h.get_by_label("Color Picker (Foreground Color)").rect();
+        let web = h.get_by_label("Only Web Colors").rect();
+        assert!(egui::Rect::from_min_size(egui::Pos2::ZERO, size).contains_rect(frame), "{frame:?}");
+        assert!((frame.width() - title.width() - 32.0).abs() < 2.0, "{frame:?} {title:?}");
+        assert!(web.left() >= title.left() && web.right() <= title.right());
+        for label in ["OK", "Cancel", "Add to Swatches"] {
+            let rect = h.get_by_label(label).rect();
+            assert!(rect.left() >= title.left() && rect.right() <= title.right(), "{label}: {rect:?}");
+        }
+        h.get_by_label("Only Web Colors").click();
+        h.run_steps(2);
+        assert_eq!(h.state().ui.dialogs[0].fields.get("__webOnly").and_then(serde_json::Value::as_bool), Some(true));
+        h.hover_at(web.center());
+        h.event(egui::Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Point,
+            delta: egui::vec2(0.0, -600.0),
+            phase: egui::TouchPhase::Move,
+            modifiers: egui::Modifiers::NONE,
+        });
+        h.run_steps(8);
+        let hex = h.get_by_role(egui::accesskit::Role::TextInput);
+        assert!(frame.contains_rect(hex.rect()), "hex field is visible after scrolling: {:?}", hex.rect());
+        hex.click();
+        h.run_steps(1);
+        h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+        h.run_steps(1);
+        h.event(egui::Event::Text("ff0000".into()));
+        h.run_steps(2);
+        assert_eq!(h.state().ui.dialogs[0].fields.get("color").and_then(serde_json::Value::as_str), Some("#ff0000"));
     }
 
     #[test]
