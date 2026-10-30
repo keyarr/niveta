@@ -2329,33 +2329,11 @@ pub fn canvas_view(app: &mut NivetaApp, ui: &mut egui::Ui, idx: usize, rect: Rec
         crate::transform_tool::cancel_gesture(app);
     }
     let touch_nav = touch.is_some();
-    // The unfiltered gesture feeds the tap tracker: `touch` above only exists while two
-    // fingers are down on the canvas, so passing it would mistake a slide off the canvas
-    // (or a pinch) for a lift. The tracker itself decides what counts as a tap.
-    let raw_touch = ctx.input(|i| i.multi_touch());
     let any_touch = ctx.input(|i| i.any_touches());
     app.touch_active = app.touch_active || any_touch || crate::mobile_ui::is_mobile(&ctx);
     // Set by the previous frame once two fingers land; the leftover finger must not paint
     // until every finger lifts, or its release click covers the tap's undo with a new dot.
     let paint_locked = app.touch_lock;
-
-    // Two-finger tap: left half undoes, right half redoes. Short and steady only;
-    // anything longer or farther kept panning and pinching above. Suppressed while
-    // transforming (the box owns undo there) or typing in a field, where a tap
-    // would undo by accident.
-    let mut tap_fired = false;
-    if primary
-        && app.ui.transform.is_none()
-        && !ctx.text_edit_focused()
-        && let Some(side) = crate::mobile_ui::two_finger_tap(&mut app.touch_tap, ctx.input(|i| i.time), rect, raw_touch.as_ref())
-    {
-        tap_fired = true;
-        let id = match side {
-            crate::mobile_ui::TapSide::Undo => "edit.undo",
-            crate::mobile_ui::TapSide::Redo => "edit.redo",
-        };
-        let _ = crate::menus::invoke(app, &ctx, id, json!({}));
-    }
 
     // Pen pressure/tilt for this frame's tool events (mouse = 1.0), unless Preferences › Tools ›
     // Use Tablet Pressure is off; the pen's eraser end selects the Eraser.
@@ -2969,7 +2947,7 @@ pub fn canvas_view(app: &mut NivetaApp, ui: &mut egui::Ui, idx: usize, rect: Rec
         // stroke): updated here, after painting used the previous frame's value, so the
         // gesture's own release click is still swallowed on the lift frame. While
         // transforming the box stays finger-ready right after a pinch, so no lock.
-        if (touch.is_some() && app.ui.transform.is_none()) || tap_fired {
+        if touch.is_some() && app.ui.transform.is_none() {
             app.touch_lock = true;
         } else if ctx.input(|i| i.pointer.primary_pressed()) || !any_touch {
             app.touch_lock = false;

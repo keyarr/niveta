@@ -57,67 +57,8 @@ pub fn two_finger(ctx: &egui::Context, rect: egui::Rect) -> Option<egui::MultiTo
     ctx.input(|i| i.multi_touch()).filter(|m| m.num_touches >= 2 && rect.contains(m.center_pos))
 }
 
-/// Which half of the canvas a two-finger tap landed on: left undoes, right redoes.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum TapSide {
-    Undo,
-    Redo,
-}
-
-/// An in-progress two-finger tap over the canvas: a short two-finger touch with almost
-/// no pan or pinch. Anything longer or farther keeps navigating (see [`two_finger`]).
-#[derive(Clone, Copy, Debug)]
-pub struct TapTrack {
-    start: f64,
-    center: egui::Pos2,
-    moved: f32,
-}
-
-/// Longest a two-finger touch may last to still count as a tap, and farthest its
-/// centre may wander (points).
-const TAP_SECS: f64 = 0.4;
-const TAP_TRAVEL: f32 = 24.0;
-
-/// Fold one frame of multi-touch state into the tap tracker. Returns the tap's side when
-/// the fingers lift in time and in place: the caller undoes (left) or redoes (right).
-/// A pinch, spread or twist is navigation, never a tap, so any real zoom/rotation kills it.
-pub fn two_finger_tap(track: &mut Option<TapTrack>, now: f64, rect: egui::Rect, touch: Option<&egui::MultiTouchInfo>) -> Option<TapSide> {
-    let Some(m) = touch else {
-        let t = track.take()?;
-        let dt = now - t.start;
-        // Same-frame lifts (dt == 0) still count; `(0.0..TAP_SECS)` would drop them.
-        if !dt.is_sign_negative() && dt < TAP_SECS && t.moved < TAP_TRAVEL && rect.contains(t.center) {
-            return Some(if t.center.x < rect.center().x { TapSide::Undo } else { TapSide::Redo });
-        }
-        return None;
-    };
-    if m.num_touches != 2 {
-        // Three fingers (or more) is some other gesture: wait for fresh fingers.
-        *track = None;
-        return None;
-    }
-    match track {
-        None => {
-            // Taps start on the canvas; a gesture that slides in from the chrome never counts.
-            if !rect.contains(m.center_pos) {
-                return None;
-            }
-            *track = Some(TapTrack { start: now, center: m.center_pos, moved: 0.0 });
-        }
-        Some(t) => {
-            if (m.zoom_delta - 1.0).abs() > 0.08 || m.rotation_delta.abs() > 0.06 {
-                t.moved = TAP_TRAVEL + 1.0;
-            } else {
-                t.moved = t.moved.max(t.center.distance(m.center_pos));
-            }
-        }
-    }
-    None
-}
-
-/// Compact header: Home, the document title, export and an overflow menu. Undo and redo
-/// live on two-finger taps over the canvas (left half undoes, right half redoes), so they
-/// take no header room. Everything else lives one tap away in the command palette or the
+/// Compact header: Home, the document title, undo, redo, export and an overflow menu.
+/// Everything else lives one tap away in the command palette or the
 /// overflow menu, so no menu bar has to fit in 360 pt. With no document open only the title
 /// and the overflow menu stay: Home and export need an editable document.
 pub fn header(app: &mut NivetaApp, ui: &mut egui::Ui) {
@@ -143,6 +84,14 @@ pub fn header(app: &mut NivetaApp, ui: &mut egui::Ui) {
                     let export_on = crate::menus::is_enabled(app, "file.export.exportAs");
                     if ui.add_enabled_ui(export_on, |ui| widgets::secondary_button(ui, tl!("Export"), 64.0)).inner.clicked() {
                         crate::mobile_export::open(app);
+                    }
+                    for (icon, label, command) in [("redo-2", tl!("Redo"), "edit.redo"), ("undo-2", tl!("Undo"), "edit.undo")] {
+                        let enabled = crate::menus::is_enabled(app, command);
+                        let button = ui.add_enabled_ui(enabled, |ui| icons::button_with_icon_size(ui, icon, HISTORY_BTN, 20.0, false, label)).inner;
+                        button.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, label));
+                        if button.clicked() {
+                            let _ = crate::menus::invoke(app, ui.ctx(), command, json!({}));
+                        }
                     }
                 }
                 let title =
@@ -211,6 +160,8 @@ const MENU_ROW_H: f32 = 40.0;
 const MENU_GAP: f32 = 2.0;
 /// The Home button's touch size.
 const HOME_BTN: f32 = 48.0;
+/// Touch-sized history controls in the compact header.
+const HISTORY_BTN: f32 = 44.0;
 /// The search field's inner padding: the magnifier keeps this distance from the frame.
 const SEARCH_PAD: f32 = 8.0;
 
@@ -1580,58 +1531,6 @@ mod tests {
         assert_eq!(two_finger(&ctx, bar), None);
     }
 
-    fn tap_touch(center: egui::Pos2, n: usize) -> egui::MultiTouchInfo {
-        egui::MultiTouchInfo {
-            start_time: 0.0,
-            start_pos: center,
-            center_pos: center,
-            num_touches: n,
-            zoom_delta: 1.0,
-            zoom_delta_2d: vec2(1.0, 1.0),
-            rotation_delta: 0.0,
-            translation_delta: egui::Vec2::ZERO,
-            force: 0.0,
-        }
-    }
-
-    /// A quick two-finger tap undoes on the left half of the canvas, redoes on the right.
-    #[test]
-    fn two_finger_tap_picks_undo_left_and_redo_right() {
-        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(360.0, 600.0));
-        for (at, want) in [(pos2(90.0, 300.0), TapSide::Undo), (pos2(270.0, 300.0), TapSide::Redo)] {
-            let mut track = None;
-            assert_eq!(two_finger_tap(&mut track, 1.0, rect, Some(&tap_touch(at, 2))), None);
-            assert!(track.is_some(), "fingers down start the track");
-            assert_eq!(two_finger_tap(&mut track, 1.2, rect, None), Some(want), "lifting in time fires {want:?}");
-            assert!(track.is_none(), "the track resets after firing");
-        }
-    }
-
-    /// Slow lifts, wandering centres, extra fingers and taps outside the canvas stay navigation.
-    #[test]
-    fn two_finger_tap_ignores_non_taps() {
-        let rect = egui::Rect::from_min_size(egui::Pos2::ZERO, vec2(360.0, 600.0));
-        // Held too long: a pan, not a tap.
-        let mut track = None;
-        assert_eq!(two_finger_tap(&mut track, 1.0, rect, Some(&tap_touch(pos2(90.0, 300.0), 2))), None);
-        assert_eq!(two_finger_tap(&mut track, 2.0, rect, None), None);
-        // Wandered off: a pan, not a tap.
-        let mut track = None;
-        let mut moved = tap_touch(pos2(190.0, 300.0), 2);
-        assert_eq!(two_finger_tap(&mut track, 1.0, rect, Some(&tap_touch(pos2(90.0, 300.0), 2))), None);
-        moved.center_pos = pos2(190.0, 300.0);
-        assert_eq!(two_finger_tap(&mut track, 1.1, rect, Some(&moved)), None);
-        assert_eq!(two_finger_tap(&mut track, 1.2, rect, None), None);
-        // Three fingers: some other gesture, and the lift after them fires nothing.
-        let mut track = None;
-        assert_eq!(two_finger_tap(&mut track, 1.0, rect, Some(&tap_touch(pos2(90.0, 300.0), 2))), None);
-        assert_eq!(two_finger_tap(&mut track, 1.1, rect, Some(&tap_touch(pos2(90.0, 300.0), 3))), None);
-        assert_eq!(two_finger_tap(&mut track, 1.2, rect, None), None);
-        // No fingers ever down: nothing to lift.
-        let mut track = None;
-        assert_eq!(two_finger_tap(&mut track, 1.2, rect, None), None);
-    }
-
     /// The strip's controls sit on the strip's centre line (the header's 26, plus the header's
     /// 52): the strip's scroll area used to hold a plain `horizontal` row, which sized itself to
     /// its content and pinned the controls to the strip's top edge, chip-first.
@@ -1696,8 +1595,8 @@ mod tests {
         assert!((98.0..=100.5).contains(&lines[1]), "the line sits at the bottom of the options strip, got {}", lines[1]);
     }
 
-    /// The header carries Home where undo used to be: tapping it parks the documents
-    /// on the Home screen, tapping again comes back. Undo/redo moved to two-finger taps.
+    /// The header carries Home: tapping it parks the documents on the Home screen,
+    /// tapping again comes back.
     #[test]
     fn header_home_button_toggles_the_home_screen() {
         use egui_kittest::Harness;
@@ -1850,7 +1749,6 @@ mod tests {
         tap(&mut h, egui::pos2(332.0, 26.0));
         assert!(h.query_by_label("Transform").is_some(), "the group is one row");
         assert!(h.query_by_label("Scale").is_none(), "the list starts closed");
-        assert!(h.query_by_label("Redo").is_none(), "the menu carries redo no more");
         let group = h.get_by_label("Transform").rect().center();
         tap(&mut h, group);
         assert!(h.query_by_label("Scale").is_some(), "the list opens in place");
@@ -1886,10 +1784,55 @@ mod tests {
         );
         NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
         h.run_steps(8);
-        assert!(h.query_by_label("Undo").is_none(), "no undo in the header");
-        assert!(h.query_by_label("Redo").is_none(), "no redo in the header");
-        let r = h.get_by_label("Export").rect();
-        assert!(r.min.x >= 0.0 && r.max.x <= 360.0, "Export is on screen: {r:?}");
+        let undo = h.get_by_label("Undo").rect();
+        let redo = h.get_by_label("Redo").rect();
+        let export = h.get_by_label("Export").rect();
+        for (label, r) in [("Undo", undo), ("Redo", redo), ("Export", export)] {
+            assert!(r.min.x >= 0.0 && r.max.x <= 360.0, "{label} is on screen: {r:?}");
+        }
+        assert!(undo.width() >= 40.0 && redo.width() >= 40.0, "history buttons remain touch-sized: {undo:?}, {redo:?}");
+    }
+
+    #[test]
+    fn header_history_buttons_invoke_commands_on_a_narrow_screen() {
+        use egui_kittest::Harness;
+        use egui_kittest::kittest::Queryable;
+        crate::i18n::set_current(crate::i18n::Lang::EN);
+        let mut a = app();
+        a.run("file.new", json!({"width": 64, "height": 64})).unwrap();
+        a.run("edit.fill", json!({"color": "#00ff00"})).unwrap();
+        let mut h = Harness::builder().with_size(vec2(320.0, 800.0)).build_ui_state(
+            |ui, app: &mut NivetaApp| {
+                if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
+                    return;
+                }
+                header(app, ui);
+            },
+            a,
+        );
+        NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
+        h.run_steps(8);
+        let tap = |h: &mut Harness<'_, NivetaApp>, at: egui::Pos2| {
+            h.drag_at(at);
+            h.run_steps(1);
+            h.drop_at(at);
+            h.run_steps(3);
+        };
+        let pixel = |h: &Harness<'_, NivetaApp>| {
+            let image = niveta_compose::thumbnail(&h.state().session.active().unwrap().doc, 4);
+            [image.pixels[0], image.pixels[1], image.pixels[2]]
+        };
+        assert_eq!(pixel(&h), [0, 255, 0]);
+        for label in ["Undo", "Redo", "Export"] {
+            let r = h.get_by_label(label).rect();
+            assert!(r.min.x >= 0.0 && r.max.x <= 320.0, "{label} fits at 320 pt: {r:?}");
+        }
+        let undo = h.get_by_label("Undo").rect().center();
+        tap(&mut h, undo);
+        assert_ne!(pixel(&h), [0, 255, 0], "Undo button invokes edit.undo");
+        let redo = h.get_by_label("Redo").rect().center();
+        tap(&mut h, redo);
+        assert_eq!(pixel(&h), [0, 255, 0], "Redo button invokes edit.redo");
     }
 
     fn text_edit() -> crate::state::TextEdit {

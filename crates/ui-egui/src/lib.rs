@@ -372,10 +372,8 @@ pub struct NivetaApp {
     pub(crate) patch_preview: Option<patch_preview::PatchPreview>,
     /// The pixels a Magnetic Lasso border follows (`magnetic_lasso_ui`).
     pub(crate) magnetic: magnetic_lasso_ui::Runtime,
-    /// A two-finger tap over the canvas in progress (touch undo/redo, `mobile_ui`).
-    pub(crate) touch_tap: Option<crate::mobile_ui::TapTrack>,
     /// A two-finger gesture was down: the leftover finger must not paint until every
-    /// finger lifts, or the tap's undo is immediately covered by a new dot (`canvas`).
+    /// finger lifts (`canvas`).
     pub(crate) touch_lock: bool,
     /// A finger is down or the window is phone-narrow: transform handles use the touch
     /// grab radius instead of the mouse one (`transform_tool::handle_tolerance`).
@@ -556,7 +554,6 @@ impl NivetaApp {
             blend_preview: None,
             patch_preview: None,
             magnetic: Default::default(),
-            touch_tap: None,
             touch_lock: false,
             touch_active: false,
             secondary_erase: false,
