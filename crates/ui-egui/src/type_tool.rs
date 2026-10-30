@@ -996,21 +996,23 @@ pub fn options_bar(app: &mut NivetaApp, ui: &mut egui::Ui) {
     if resp.clicked() {
         open_color_picker(app, [c[0], c[1], c[2]]);
     }
-    if app.ui.text_edit.is_some() {
+    if app.ui.text_edit.is_some() && !crate::mobile_ui::is_mobile(ui.ctx()) {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.add_space(8.0);
-            if crate::icons::button(
+            let commit_btn = crate::icons::button(
                 ui,
                 "check",
                 24.0,
                 false,
                 &crate::i18n::fmt(tl!("Commit any current edits ({key})"), &[("key", &crate::shortcuts::pretty("Cmd+Enter"))]),
-            )
-            .clicked()
-            {
+            );
+            commit_btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Commit text"));
+            if commit_btn.clicked() {
                 commit(app);
             }
-            if crate::icons::button(ui, "ban", 24.0, false, tl!("Cancel any current edits (Esc)")).clicked() {
+            let cancel_btn = crate::icons::button(ui, "ban", 24.0, false, tl!("Cancel any current edits (Esc)"));
+            cancel_btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Cancel text"));
+            if cancel_btn.clicked() {
                 cancel(app);
             }
         });

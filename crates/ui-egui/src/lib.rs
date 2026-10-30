@@ -1280,7 +1280,7 @@ impl eframe::App for NivetaApp {
         });
         if mobile && !showing_home {
             crate::mobile_ui::tool_sheet(self, &ctx);
-            crate::mobile_ui::transform_floating_pill(self, &ctx);
+            crate::mobile_ui::floating_pill(self, &ctx);
         }
         crate::mobile_export::show(self, &ctx);
         panels::properties_window(self, &ctx);

@@ -324,14 +324,32 @@ pub fn options_strip(app: &mut NivetaApp, ui: &mut egui::Ui) {
     });
 }
 
-/// Floating pill centered at the bottom of the canvas for Transform confirm and cancel actions.
-pub fn transform_floating_pill(app: &mut NivetaApp, ctx: &egui::Context) {
-    if app.ui.transform.is_none() || !is_mobile(ctx) || app.session.active().is_none() {
+/// The edit whose confirm and cancel actions the floating pill shows.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PillMode {
+    Transform,
+    Crop,
+    Text,
+}
+
+/// Floating pill centered at the bottom of the canvas for the active edit's confirm and
+/// cancel actions: transform, a pending crop, or inline type editing.
+pub fn floating_pill(app: &mut NivetaApp, ctx: &egui::Context) {
+    if !is_mobile(ctx) || app.session.active().is_none() {
         return;
     }
+    let mode = if app.ui.transform.is_some() {
+        PillMode::Transform
+    } else if app.ui.text_edit.is_some() {
+        PillMode::Text
+    } else if app.ui.crop_rect.is_some() {
+        PillMode::Crop
+    } else {
+        return;
+    };
     let screen = ctx.content_rect();
     let offset_y = if app.ui.mobile.panel.is_some() { -(screen.height() * 0.45).clamp(260.0, 420.0) - 16.0 } else { -76.0 };
-    egui::Area::new(egui::Id::new("mobile-transform-pill")).order(egui::Order::Foreground).anchor(Align2::CENTER_BOTTOM, vec2(0.0, offset_y)).show(ctx, |ui| {
+    egui::Area::new(egui::Id::new("mobile-edit-pill")).order(egui::Order::Foreground).anchor(Align2::CENTER_BOTTOM, vec2(0.0, offset_y)).show(ctx, |ui| {
         let t = Tokens::get(ui.ctx());
         egui::Frame::popup(ui.style())
             .fill(t.chrome)
@@ -342,22 +360,44 @@ pub fn transform_floating_pill(app: &mut NivetaApp, ctx: &egui::Context) {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 16.0;
                     let warping = app.ui.transform.as_ref().is_some_and(|t| t.warp.is_some());
-                    let cancel_tip = if warping { tl!("Cancel warp (Esc)") } else { tl!("Cancel transform (Esc)") };
+                    let (cancel_tip, cancel_label) = match mode {
+                        PillMode::Transform => (if warping { tl!("Cancel warp (Esc)") } else { tl!("Cancel transform (Esc)") }, "Cancel transform"),
+                        PillMode::Crop => (tl!("Cancel current crop operation  (Esc)"), "Cancel crop"),
+                        PillMode::Text => (tl!("Cancel any current edits (Esc)"), "Cancel text"),
+                    };
                     let cancel_btn = icons::button_with_icon_size(ui, "ban", 36.0, 20.0, false, cancel_tip);
-                    cancel_btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Cancel transform"));
+                    cancel_btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, cancel_label));
                     if cancel_btn.clicked() {
-                        crate::transform_tool::cancel(app);
+                        match mode {
+                            PillMode::Transform => crate::transform_tool::cancel(app),
+                            PillMode::Crop => {
+                                app.ui.crop_rect = None;
+                                app.ui.crop_angle = 0.0;
+                            }
+                            PillMode::Text => crate::type_tool::cancel(app),
+                        }
                     }
                     widgets::vline(ui, 20.0);
-                    let commit_tip = if warping {
-                        crate::i18n::fmt(tl!("Commit warp ({key})"), &[("key", &crate::shortcuts::pretty("Enter"))])
-                    } else {
-                        crate::i18n::fmt(tl!("Commit transform ({key})"), &[("key", &crate::shortcuts::pretty("Enter"))])
+                    let key = crate::shortcuts::pretty(if mode == PillMode::Text { "Cmd+Enter" } else { "Enter" });
+                    let commit_tip = match mode {
+                        PillMode::Transform if warping => crate::i18n::fmt(tl!("Commit warp ({key})"), &[("key", &key)]),
+                        PillMode::Transform => crate::i18n::fmt(tl!("Commit transform ({key})"), &[("key", &key)]),
+                        PillMode::Crop => crate::i18n::fmt(tl!("Commit current crop operation  ({key})"), &[("key", &key)]),
+                        PillMode::Text => crate::i18n::fmt(tl!("Commit any current edits ({key})"), &[("key", &key)]),
+                    };
+                    let commit_label = match mode {
+                        PillMode::Transform => "Commit transform",
+                        PillMode::Crop => "Commit crop",
+                        PillMode::Text => "Commit text",
                     };
                     let commit_btn = icons::button_with_icon_size(ui, "check", 36.0, 20.0, false, &commit_tip);
-                    commit_btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Commit transform"));
+                    commit_btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, commit_label));
                     if commit_btn.clicked() {
-                        crate::transform_tool::commit(app);
+                        match mode {
+                            PillMode::Transform => crate::transform_tool::commit(app),
+                            PillMode::Crop => crate::canvas::commit_crop(app),
+                            PillMode::Text => crate::type_tool::commit(app),
+                        }
                     }
                 });
             });
@@ -1850,5 +1890,79 @@ mod tests {
         assert!(h.query_by_label("Redo").is_none(), "no redo in the header");
         let r = h.get_by_label("Export").rect();
         assert!(r.min.x >= 0.0 && r.max.x <= 360.0, "Export is on screen: {r:?}");
+    }
+
+    fn text_edit() -> crate::state::TextEdit {
+        crate::state::TextEdit { layer: 999, caret: 0, anchor: 0, session: "pill".into(), created: false, dragging: false, resize: None, preedit: None }
+    }
+
+    /// On phones the options strip leaves crop and inline-type confirm/cancel to the
+    /// floating pill: one set of actions, in the pill only, wired to the same handlers.
+    #[test]
+    fn floating_pill_carries_crop_and_text_actions_on_mobile() {
+        use egui_kittest::kittest::Queryable;
+        crate::i18n::set_current(crate::i18n::Lang::EN);
+        let mut a = app();
+        a.run("file.new", json!({"width": 200, "height": 120})).unwrap();
+        a.ui.tool = Tool::Crop;
+        a.ui.crop_rect = Some([10.0, 20.0, 110.0, 80.0]);
+        a.crop.default_frame = false;
+        let mut h = Harness::builder().with_size(vec2(360.0, 800.0)).build_ui_state(
+            |ui, app: &mut NivetaApp| {
+                if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
+                    return;
+                }
+                let ctx = ui.ctx().clone();
+                options_strip(app, ui);
+                floating_pill(app, &ctx);
+            },
+            a,
+        );
+        NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
+        h.run_steps(8);
+        assert_eq!(h.query_all_by_label("Commit crop").count(), 1, "the pill is the only place");
+        assert_eq!(h.query_all_by_label("Cancel crop").count(), 1, "the pill is the only place");
+        h.get_by_label("Commit crop").click();
+        h.run_steps(2);
+        assert!(h.state().ui.crop_rect.is_none(), "the pill commits the crop");
+        assert_eq!(h.state().session.active().unwrap().doc.size.width, 100);
+        assert!(h.query_by_label("Commit crop").is_none(), "the pill closes with the crop");
+
+        h.state_mut().ui.text_edit = Some(text_edit());
+        h.run_steps(2);
+        assert_eq!(h.query_all_by_label("Commit text").count(), 1, "the pill is the only place");
+        assert_eq!(h.query_all_by_label("Cancel text").count(), 1, "the pill is the only place");
+        h.get_by_label("Cancel text").click();
+        h.run_steps(2);
+        assert!(h.state().ui.text_edit.is_none(), "the pill cancels the edit");
+    }
+
+    /// Wide windows keep the options bar's own crop and type confirm/cancel buttons.
+    #[test]
+    fn options_bar_keeps_crop_and_text_actions_on_desktop() {
+        use egui_kittest::kittest::Queryable;
+        crate::i18n::set_current(crate::i18n::Lang::EN);
+        let mut a = app();
+        a.run("file.new", json!({"width": 200, "height": 120})).unwrap();
+        a.ui.tool = Tool::Crop;
+        let mut h = Harness::builder().with_size(vec2(900.0, 60.0)).build_ui_state(
+            |ui, app: &mut NivetaApp| {
+                if !ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
+                    return;
+                }
+                crate::panels::options_bar(app, ui);
+            },
+            a,
+        );
+        NivetaApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
+        h.run_steps(8);
+        assert_eq!(h.query_all_by_label("Commit crop").count(), 1);
+        assert_eq!(h.query_all_by_label("Cancel crop").count(), 1);
+
+        h.state_mut().ui.tool = Tool::Type;
+        h.state_mut().ui.text_edit = Some(text_edit());
+        h.run_steps(4);
+        assert_eq!(h.query_all_by_label("Commit text").count(), 1);
+        assert_eq!(h.query_all_by_label("Cancel text").count(), 1);
     }
 }

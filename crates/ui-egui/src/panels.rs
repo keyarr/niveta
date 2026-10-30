@@ -1002,23 +1002,27 @@ pub(crate) fn options_content(app: &mut NivetaApp, ui: &mut egui::Ui) {
                         }
                         let _ = icons::button(ui, "grid-3x3", 24.0, true, tl!("Overlay: Rule of Thirds"));
                         widgets::checkbox(ui, &mut o.crop_delete, tl!("Delete Cropped Pixels"));
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if icons::button(
-                                ui,
-                                "check",
-                                26.0,
-                                false,
-                                &crate::i18n::fmt(tl!("Commit current crop operation  ({key})"), &[("key", &crate::shortcuts::pretty("Enter"))]),
-                            )
-                            .clicked()
-                            {
-                                crate::canvas::commit_crop(app);
-                            }
-                            if icons::button(ui, "ban", 26.0, false, tl!("Cancel current crop operation  (Esc)")).clicked() {
-                                app.ui.crop_rect = None;
-                                app.ui.crop_angle = 0.0;
-                            }
-                        });
+                        if !crate::mobile_ui::is_mobile(ui.ctx()) {
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                let commit = icons::button(
+                                    ui,
+                                    "check",
+                                    26.0,
+                                    false,
+                                    &crate::i18n::fmt(tl!("Commit current crop operation  ({key})"), &[("key", &crate::shortcuts::pretty("Enter"))]),
+                                );
+                                commit.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Commit crop"));
+                                if commit.clicked() {
+                                    crate::canvas::commit_crop(app);
+                                }
+                                let cancel = icons::button(ui, "ban", 26.0, false, tl!("Cancel current crop operation  (Esc)"));
+                                cancel.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Cancel crop"));
+                                if cancel.clicked() {
+                                    app.ui.crop_rect = None;
+                                    app.ui.crop_angle = 0.0;
+                                }
+                            });
+                        }
                     }
                     // Every theme gets the font, style and size controls (#1387), as with Auto-Select (#1275).
                     Tool::Type | Tool::VerticalType => crate::type_tool::options_bar(app, ui),
